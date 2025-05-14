@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <glm/gtc/type_ptr.hpp>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unordered_map>
 
 // Constants
 const float INITIAL_SPEED = 2.0f;
@@ -45,12 +46,16 @@ float camera_x = 0;
 float camera_y = 0;
 
 float y_rotation = 0;
-int movement_keys_clicked = 0;
 
 float previous_camera_x = 0;
 float previous_camera_y = 0;
 
+float sensitivity = 0.5f;
+
 ShaderProgram *sp; // Pointer to the shader program
+
+// Key state tracking
+std::unordered_map<int, bool> keyStates;
 
 // Error callback
 void error_callback(int error, const char *description) {
@@ -60,38 +65,16 @@ void error_callback(int error, const char *description) {
 // Key callback
 void keyCallback(GLFWwindow *window, int key, int scancode, int action,
                  int mods) {
-  printf("Data: (%f, %f)\n", move_x, move_z);
-
-  float cos_camera_x = cos(camera_x / 100);
-  float sin_camera_x = sin(camera_x / 100);
-
-  if (action == GLFW_PRESS || action == GLFW_RELEASE) {
-    int direction = (action == GLFW_PRESS) ? 1 : -1;
-
-    if (key == GLFW_KEY_W || key == GLFW_KEY_S) {
-      move_z += direction * INITIAL_SPEED * cos_camera_x *
-                (key == GLFW_KEY_W ? 1 : -1);
-      move_x -= direction * INITIAL_SPEED * sin_camera_x *
-                (key == GLFW_KEY_W ? 1 : -1);
-    }
-    if (key == GLFW_KEY_A || key == GLFW_KEY_D) {
-      move_z += direction * INITIAL_SPEED * sin_camera_x *
-                (key == GLFW_KEY_A ? 1 : -1);
-      move_x += direction * INITIAL_SPEED * cos_camera_x *
-                (key == GLFW_KEY_A ? 1 : -1);
-    }
-
-    movement_keys_clicked += direction;
-    if (movement_keys_clicked == 0) {
-      move_x = 0;
-      move_z = 0;
-    }
+  if (action == GLFW_PRESS) {
+    keyStates[key] = true;
+  } else if (action == GLFW_RELEASE) {
+    keyStates[key] = false;
   }
 }
 
 // Cursor position callback
 void cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
-  camera_x -= previous_camera_x - xpos;
+  camera_x -= (previous_camera_x - xpos) * sensitivity;
   y_rotation -= (previous_camera_y - ypos) / 100;
 
   y_rotation =
@@ -141,6 +124,44 @@ void drawCube(const glm::mat4 &M) {
   glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount);
   glDisableVertexAttribArray(sp->a("color"));
   glDisableVertexAttribArray(sp->a("vertex"));
+}
+
+void drawFloor(const glm::mat4 &M) {
+  glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
+  glEnableVertexAttribArray(sp->a("vertex"));
+  glEnableVertexAttribArray(sp->a("color"));
+  glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0, myTeapotColors);
+  glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0,
+                        myTeapotVertices);
+  glDrawArrays(GL_TRIANGLES, 0, myTeapotVertexCount);
+  glDisableVertexAttribArray(sp->a("color"));
+  glDisableVertexAttribArray(sp->a("vertex"));
+}
+
+// Update movement based on key states
+void updateMovement() {
+  float cos_camera_x = cos(camera_x / 100);
+  float sin_camera_x = sin(camera_x / 100);
+
+  move_x = 0;
+  move_z = 0;
+
+  if (keyStates[GLFW_KEY_W]) {
+    move_z += INITIAL_SPEED * cos_camera_x;
+    move_x -= INITIAL_SPEED * sin_camera_x;
+  }
+  if (keyStates[GLFW_KEY_S]) {
+    move_z -= INITIAL_SPEED * cos_camera_x;
+    move_x += INITIAL_SPEED * sin_camera_x;
+  }
+  if (keyStates[GLFW_KEY_A]) {
+    move_z += INITIAL_SPEED * sin_camera_x;
+    move_x += INITIAL_SPEED * cos_camera_x;
+  }
+  if (keyStates[GLFW_KEY_D]) {
+    move_z -= INITIAL_SPEED * sin_camera_x;
+    move_x -= INITIAL_SPEED * cos_camera_x;
+  }
 }
 
 // Draw scene
@@ -212,6 +233,8 @@ int main(void) {
 
   glfwSetTime(0);
   while (!glfwWindowShouldClose(window)) {
+    updateMovement();
+
     angle_x += move_x * glfwGetTime();
     angle_z += move_z * glfwGetTime();
     glfwSetTime(0);
