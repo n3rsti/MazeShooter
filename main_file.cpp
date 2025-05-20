@@ -25,6 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "constants.h"
 #include "lodepng.h"
 #include "shaderprogram.h"
+#include "src/player/camera.h"
+#include "src/player/movement.h"
 #include "static/models/myCube.h"
 #include "static/models/myTeapot.h"
 #include <GL/glew.h>
@@ -44,19 +46,13 @@ const float NEAR_PLANE = 1.0f;
 const float FAR_PLANE = 50.0f;
 
 // Global Variables
-float x_move = 0;
-float z_move = 0;
 float aspectRatio = 1;
-
-float x_rotation = 0;
-float y_rotation = 0;
-
-float previous_camera_x = 0;
-float previous_camera_y = 0;
 
 float sensitivity = 0.5f;
 
 ShaderProgram *sp; // Pointer to the shader program
+Camera *camera;
+Movement *movement;
 
 // Key state tracking
 std::unordered_map<int, bool> keyStates;
@@ -78,17 +74,7 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 
 // Cursor position callback
 void cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
-  x_rotation -= (previous_camera_x - xpos) * sensitivity;
-  y_rotation -= (previous_camera_y - ypos) / 100 * sensitivity;
-
-  y_rotation =
-      glm::clamp(y_rotation, -CAMERA_ROTATION_LIMIT, CAMERA_ROTATION_LIMIT);
-
-  previous_camera_x = xpos;
-  previous_camera_y = ypos;
-
-  printf("Cursor position: (%f, %f, %f, %f)\n", xpos, ypos, x_rotation,
-         y_rotation);
+  camera->cursorPosCallback(window, xpos, ypos);
 }
 
 // Window resize callback
@@ -96,6 +82,7 @@ void windowResizeCallback(GLFWwindow *window, int width, int height) {
   if (height == 0)
     return;
   aspectRatio = static_cast<float>(width) / height;
+  camera->aspect_ratio = aspectRatio;
   glViewport(0, 0, width, height);
 }
 
@@ -113,6 +100,9 @@ void initOpenGLProgram(GLFWwindow *window) {
     glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
   sp = new ShaderProgram("v_simplest.glsl", NULL, "f_simplest.glsl");
+  camera = new Camera(CAMERA_ROTATION_LIMIT, FOV, NEAR_PLANE, FAR_PLANE,
+                      sensitivity, aspectRatio);
+  movement = new Movement(INITIAL_SPEED);
 }
 
 // Free OpenGL resources
@@ -142,55 +132,6 @@ void drawFloor(const glm::mat4 &M) {
   glDisableVertexAttribArray(sp->a("vertex"));
 }
 
-// Update movement based on key states
-void updateMovement() {
-  float cos_camera_x = cos(x_rotation / 100);
-  float sin_camera_x = sin(x_rotation / 100);
-
-  x_move = 0;
-  z_move = 0;
-
-  if (keyStates[GLFW_KEY_W]) {
-    z_move += INITIAL_SPEED * cos_camera_x;
-    x_move -= INITIAL_SPEED * sin_camera_x;
-  }
-  if (keyStates[GLFW_KEY_S]) {
-    z_move -= INITIAL_SPEED * cos_camera_x;
-    x_move += INITIAL_SPEED * sin_camera_x;
-  }
-  if (keyStates[GLFW_KEY_A]) {
-    z_move += INITIAL_SPEED * sin_camera_x;
-    x_move += INITIAL_SPEED * cos_camera_x;
-  }
-  if (keyStates[GLFW_KEY_D]) {
-    z_move -= INITIAL_SPEED * sin_camera_x;
-    x_move -= INITIAL_SPEED * cos_camera_x;
-  }
-}
-
-// Create view, perspective matrices based on x, z position coordinates and
-// camera rotation
-void updateCamera(float x_pos, float z_pos) {
-  glm::vec3 eye = glm::vec3(x_pos, 0.0f, z_pos - 5);
-  glm::vec3 center = glm::vec3(x_pos, 0.0f, 1);
-  glm::vec3 relative = center - eye;
-
-  center.y = relative.y * cos(y_rotation) - relative.z * sin(y_rotation);
-  center.x =
-      relative.x * cos(x_rotation / 100) - relative.z * sin(x_rotation / 100);
-  center.z =
-      relative.x * sin(x_rotation / 100) + relative.z * cos(x_rotation / 100);
-
-  glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-
-  glm::mat4 V = glm::lookAt(eye, center + eye, up);
-  glm::mat4 P = glm::perspective(FOV, aspectRatio, NEAR_PLANE, FAR_PLANE);
-
-  sp->use();
-  glUniformMatrix4fv(sp->u("P"), 1, false, glm::value_ptr(P));
-  glUniformMatrix4fv(sp->u("V"), 1, false, glm::value_ptr(V));
-}
-
 void drawSurroundings() {
   glm::mat4 M = glm::mat4(1.0f);
   drawCube(M);
@@ -206,7 +147,7 @@ void drawSurroundings() {
 void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  updateCamera(x_pos, z_pos);
+  camera->updateCamera(x_pos, z_pos, sp);
   drawSurroundings();
 
   glfwSwapBuffers(window);
@@ -245,10 +186,10 @@ int main(void) {
 
   glfwSetTime(0);
   while (!glfwWindowShouldClose(window)) {
-    updateMovement();
+    movement->updateMovement(camera->x_rotation, keyStates);
 
-    angle_x += x_move * glfwGetTime();
-    angle_z += z_move * glfwGetTime();
+    angle_x += movement->x_move * glfwGetTime();
+    angle_z += movement->z_move * glfwGetTime();
     glfwSetTime(0);
 
     drawScene(window, angle_x, angle_z);
