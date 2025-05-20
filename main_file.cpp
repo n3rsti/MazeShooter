@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "glm/ext/scalar_constants.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include <cmath>
+#include <vector>
 #define GLM_FORCE_RADIANS
 
 #include "constants.h"
@@ -27,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "shaderprogram.h"
 #include "src/player/camera.h"
 #include "src/player/movement.h"
+#include "static/models/floor.h"
 #include "static/models/myCube.h"
 #include "static/models/myTeapot.h"
 #include <GL/glew.h>
@@ -42,7 +44,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 const float INITIAL_SPEED = 2.0f;
 const float CAMERA_ROTATION_LIMIT = glm::pi<float>() / 2;
 const float FOV = 50.0f * glm::pi<float>() / 180.0f;
-const float NEAR_PLANE = 1.0f;
+const float NEAR_PLANE = 0.01f;
 const float FAR_PLANE = 50.0f;
 
 // Global Variables
@@ -53,6 +55,10 @@ float sensitivity = 0.5f;
 ShaderProgram *sp; // Pointer to the shader program
 Camera *camera;
 Movement *movement;
+
+GLuint tex0;
+GLuint tex1;
+GLuint grassTex;
 
 // Key state tracking
 std::unordered_map<int, bool> keyStates;
@@ -86,6 +92,29 @@ void windowResizeCallback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
+GLuint readTexture(const char *filename) {
+  GLuint tex;
+  glActiveTexture(GL_TEXTURE0);
+
+  // Read into computers memory
+  std::vector<unsigned char> image; // Allocate memory
+  unsigned width, height;           // Variables for image size
+  // Read the image
+  unsigned error = lodepng::decode(image, width, height, filename);
+
+  // Import to graphics card memory
+  glGenTextures(1, &tex);            // Initialize one handle
+  glBindTexture(GL_TEXTURE_2D, tex); // Activate handle
+  // Copy image to graphics cards memory reprezented by the active handle
+  glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               (unsigned char *)image.data());
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  return tex;
+}
+
 // Initialize OpenGL
 void initOpenGLProgram(GLFWwindow *window) {
   glClearColor(0, 0, 0, 1);
@@ -103,38 +132,85 @@ void initOpenGLProgram(GLFWwindow *window) {
   camera = new Camera(CAMERA_ROTATION_LIMIT, FOV, NEAR_PLANE, FAR_PLANE,
                       sensitivity, aspectRatio);
   movement = new Movement(INITIAL_SPEED);
+
+  tex0 = readTexture("static/img/metal.png");
+  tex1 = readTexture("static/img/sky.png");
+  grassTex = readTexture("static/img/grass.png");
 }
 
 // Free OpenGL resources
 void freeOpenGLProgram(GLFWwindow *window) { delete sp; }
 
+void drawFloor(const glm::mat4 &M) {
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
+  glEnableVertexAttribArray(sp->a("vertex"));
+  glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0, floorVertices);
+
+  glEnableVertexAttribArray(sp->a("texCoord0"));
+  glVertexAttribPointer(sp->a("texCoord0"), 2, GL_FLOAT, false, 0,
+                        floorTexCoords);
+
+  glEnableVertexAttribArray(sp->a("normal"));
+  glVertexAttribPointer(sp->a("normal"), 4, GL_FLOAT, false, 0, floorNormals);
+
+  glActiveTexture(GL_TEXTURE0); // Assign texture tex0 to the 0-th texturing
+                                // unit
+  glBindTexture(GL_TEXTURE_2D, grassTex);
+  glUniform1i(sp->u("textureMap0"),
+              0); // Associate sampler textureMap0 with the 0-th texturing unit
+
+  glDrawArrays(GL_TRIANGLES, 0, floorVertexCount); // Draw the object
+
+  glDisableVertexAttribArray(
+      sp->a("vertex")); // Disable sending data to the attribute vertex
+  glDisableVertexAttribArray(
+      sp->a("texCoord0")); // Disable sending data to the attribute texCoord0
+  glDisableVertexAttribArray(
+      sp->a("normal")); // Disable sending data to the attribute normal
+}
+
 // Helper function to draw a cube
 void drawCube(const glm::mat4 &M) {
   glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
   glEnableVertexAttribArray(sp->a("vertex"));
-  glEnableVertexAttribArray(sp->a("color"));
-  glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0, myCubeColors);
   glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0, myCubeVertices);
-  glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount);
-  glDisableVertexAttribArray(sp->a("color"));
-  glDisableVertexAttribArray(sp->a("vertex"));
-}
 
-void drawFloor(const glm::mat4 &M) {
-  glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
-  glEnableVertexAttribArray(sp->a("vertex"));
-  glEnableVertexAttribArray(sp->a("color"));
-  glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0, myTeapotColors);
-  glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0,
-                        myTeapotVertices);
-  glDrawArrays(GL_TRIANGLES, 0, myTeapotVertexCount);
-  glDisableVertexAttribArray(sp->a("color"));
-  glDisableVertexAttribArray(sp->a("vertex"));
+  glEnableVertexAttribArray(sp->a("texCoord0"));
+  glVertexAttribPointer(sp->a("texCoord0"), 2, GL_FLOAT, false, 0,
+                        myCubeTexCoords);
+
+  glEnableVertexAttribArray(sp->a("normal"));
+  glVertexAttribPointer(sp->a("normal"), 4, GL_FLOAT, false, 0, myCubeNormals);
+
+  glActiveTexture(GL_TEXTURE0); // Assign texture tex0 to the 0-th texturing
+                                // unit
+  glBindTexture(GL_TEXTURE_2D, tex0);
+  glUniform1i(sp->u("textureMap0"),
+              0); // Associate sampler textureMap0 with the 0-th texturing unit
+
+  glActiveTexture(GL_TEXTURE1); // Assign texture tex1 to the 1-st texturing
+                                // unit
+  glBindTexture(GL_TEXTURE_2D, tex1);
+  glUniform1i(sp->u("textureMap1"),
+              1); // Associate sampler textureMap1 with the 1-st texturing unit
+
+  glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount); // Draw the object
+
+  glDisableVertexAttribArray(
+      sp->a("vertex")); // Disable sending data to the attribute vertex
+  glDisableVertexAttribArray(
+      sp->a("texCoord0")); // Disable sending data to the attribute texCoord0
+  glDisableVertexAttribArray(
+      sp->a("normal")); // Disable sending data to the attribute normal
 }
 
 void drawSurroundings() {
   glm::mat4 M = glm::mat4(1.0f);
-  drawCube(M);
+  drawFloor(M);
+  // drawCube(M);
 
   glm::mat4 Mp1 = glm::translate(M, glm::vec3(-5.0f, 0.0f, -5.0f));
   drawCube(Mp1);
@@ -147,6 +223,7 @@ void drawSurroundings() {
 void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+  sp->use();
   camera->updateCamera(x_pos, z_pos, sp);
   drawSurroundings();
 
@@ -190,6 +267,8 @@ int main(void) {
 
     angle_x += movement->x_move * glfwGetTime();
     angle_z += movement->z_move * glfwGetTime();
+
+    printf("Angle X: %f, Angle Z: %f\n", angle_x, angle_z);
     glfwSetTime(0);
 
     drawScene(window, angle_x, angle_z);
