@@ -13,14 +13,20 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "glm/common.hpp"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
+#include "glm/ext/scalar_constants.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include <cmath>
 #define GLM_FORCE_RADIANS
 
 #include "constants.h"
 #include "lodepng.h"
-#include "myCube.h"
-#include "myTeapot.h"
 #include "shaderprogram.h"
+#include "static/models/myCube.h"
+#include "static/models/myTeapot.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -38,13 +44,11 @@ const float NEAR_PLANE = 1.0f;
 const float FAR_PLANE = 50.0f;
 
 // Global Variables
-float move_x = 0;
-float move_z = 0;
+float x_move = 0;
+float z_move = 0;
 float aspectRatio = 1;
 
-float camera_x = 0;
-float camera_y = 0;
-
+float x_rotation = 0;
 float y_rotation = 0;
 
 float previous_camera_x = 0;
@@ -74,8 +78,8 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 
 // Cursor position callback
 void cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
-  camera_x -= (previous_camera_x - xpos) * sensitivity;
-  y_rotation -= (previous_camera_y - ypos) / 100;
+  x_rotation -= (previous_camera_x - xpos) * sensitivity;
+  y_rotation -= (previous_camera_y - ypos) / 100 * sensitivity;
 
   y_rotation =
       glm::clamp(y_rotation, -CAMERA_ROTATION_LIMIT, CAMERA_ROTATION_LIMIT);
@@ -83,7 +87,7 @@ void cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
   previous_camera_x = xpos;
   previous_camera_y = ypos;
 
-  printf("Cursor position: (%f, %f, %f, %f)\n", xpos, ypos, camera_x,
+  printf("Cursor position: (%f, %f, %f, %f)\n", xpos, ypos, x_rotation,
          y_rotation);
 }
 
@@ -140,44 +144,42 @@ void drawFloor(const glm::mat4 &M) {
 
 // Update movement based on key states
 void updateMovement() {
-  float cos_camera_x = cos(camera_x / 100);
-  float sin_camera_x = sin(camera_x / 100);
+  float cos_camera_x = cos(x_rotation / 100);
+  float sin_camera_x = sin(x_rotation / 100);
 
-  move_x = 0;
-  move_z = 0;
+  x_move = 0;
+  z_move = 0;
 
   if (keyStates[GLFW_KEY_W]) {
-    move_z += INITIAL_SPEED * cos_camera_x;
-    move_x -= INITIAL_SPEED * sin_camera_x;
+    z_move += INITIAL_SPEED * cos_camera_x;
+    x_move -= INITIAL_SPEED * sin_camera_x;
   }
   if (keyStates[GLFW_KEY_S]) {
-    move_z -= INITIAL_SPEED * cos_camera_x;
-    move_x += INITIAL_SPEED * sin_camera_x;
+    z_move -= INITIAL_SPEED * cos_camera_x;
+    x_move += INITIAL_SPEED * sin_camera_x;
   }
   if (keyStates[GLFW_KEY_A]) {
-    move_z += INITIAL_SPEED * sin_camera_x;
-    move_x += INITIAL_SPEED * cos_camera_x;
+    z_move += INITIAL_SPEED * sin_camera_x;
+    x_move += INITIAL_SPEED * cos_camera_x;
   }
   if (keyStates[GLFW_KEY_D]) {
-    move_z -= INITIAL_SPEED * sin_camera_x;
-    move_x -= INITIAL_SPEED * cos_camera_x;
+    z_move -= INITIAL_SPEED * sin_camera_x;
+    x_move -= INITIAL_SPEED * cos_camera_x;
   }
 }
 
-// Draw scene
-void drawScene(GLFWwindow *window, float angle_x, float angle_z,
-               float camera_x) {
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  glm::vec3 eye = glm::vec3(angle_x, 0.0f, angle_z - 5);
-  glm::vec3 center = glm::vec3(angle_x, 0.0f, 1);
+// Create view, perspective matrices based on x, z position coordinates and
+// camera rotation
+void updateCamera(float x_pos, float z_pos) {
+  glm::vec3 eye = glm::vec3(x_pos, 0.0f, z_pos - 5);
+  glm::vec3 center = glm::vec3(x_pos, 0.0f, 1);
   glm::vec3 relative = center - eye;
 
   center.y = relative.y * cos(y_rotation) - relative.z * sin(y_rotation);
   center.x =
-      relative.x * cos(camera_x / 100) - relative.z * sin(camera_x / 100);
+      relative.x * cos(x_rotation / 100) - relative.z * sin(x_rotation / 100);
   center.z =
-      relative.x * sin(camera_x / 100) + relative.z * cos(camera_x / 100);
+      relative.x * sin(x_rotation / 100) + relative.z * cos(x_rotation / 100);
 
   glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -187,7 +189,9 @@ void drawScene(GLFWwindow *window, float angle_x, float angle_z,
   sp->use();
   glUniformMatrix4fv(sp->u("P"), 1, false, glm::value_ptr(P));
   glUniformMatrix4fv(sp->u("V"), 1, false, glm::value_ptr(V));
+}
 
+void drawSurroundings() {
   glm::mat4 M = glm::mat4(1.0f);
   drawCube(M);
 
@@ -196,6 +200,14 @@ void drawScene(GLFWwindow *window, float angle_x, float angle_z,
 
   glm::mat4 Mp2 = glm::translate(Mp1, glm::vec3(10.0f, 0.0f, 0.0f));
   drawCube(Mp2);
+}
+
+// Draw scene
+void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  updateCamera(x_pos, z_pos);
+  drawSurroundings();
 
   glfwSwapBuffers(window);
 }
@@ -235,11 +247,11 @@ int main(void) {
   while (!glfwWindowShouldClose(window)) {
     updateMovement();
 
-    angle_x += move_x * glfwGetTime();
-    angle_z += move_z * glfwGetTime();
+    angle_x += x_move * glfwGetTime();
+    angle_z += z_move * glfwGetTime();
     glfwSetTime(0);
 
-    drawScene(window, angle_x, angle_z, camera_x);
+    drawScene(window, angle_x, angle_z);
     glfwPollEvents();
   }
 
