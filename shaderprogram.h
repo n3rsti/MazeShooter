@@ -13,28 +13,32 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #ifndef SHADERPROGRAM_H
 #define SHADERPROGRAM_H
 
-#include "GL/glew.h"
 #include "stdio.h"
+#include <GL/glew.h>
 
 class ShaderProgram {
 private:
-	GLuint shaderProgram; //Shader program handle
-	GLuint vertexShader; //Vertex shader handle
-	GLuint geometryShader; //Geometry shader handle
-	GLuint fragmentShader; //Fragment shader handle
-	char* readFile(const char* fileName); //File reading method
-	GLuint loadShader(GLenum shaderType,const char* fileName); //Method reads shader source file, compiles it and returns the corresponding handle
+  GLuint shaderProgram;                 // Shader program handle
+  GLuint vertexShader;                  // Vertex shader handle
+  GLuint geometryShader;                // Geometry shader handle
+  GLuint fragmentShader;                // Fragment shader handle
+  char *readFile(const char *fileName); // File reading method
+  GLuint
+  loadShader(GLenum shaderType,
+             const char *fileName); // Method reads shader source file, compiles
+                                    // it and returns the corresponding handle
 public:
-	ShaderProgram(const char* vertexShaderFile,const char* geometryShaderFile,const char* fragmentShaderFile);
-	~ShaderProgram();
-	void use(); //Turns on the shader program
-	GLuint u(const char* variableName); //Returns the slot number corresponding to the uniform variableName
-	GLuint a(const char* variableName); //Returns the slot number corresponding to the attribute variableName
+  ShaderProgram(const char *vertexShaderFile, const char *geometryShaderFile,
+                const char *fragmentShaderFile);
+  ~ShaderProgram();
+  void use();                         // Turns on the shader program
+  GLuint u(const char *variableName); // Returns the slot number corresponding
+                                      // to the uniform variableName
+  GLuint a(const char *variableName); // Returns the slot number corresponding
+                                      // to the attribute variableName
 };
-
 
 #endif

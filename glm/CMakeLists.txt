@@ -68,3 +68,5 @@ add_library(glm_shared SHARED ${ROOT_TEXT} ${ROOT_MD} ${ROOT_NAT}
 	target_link_libraries(glm_shared PUBLIC glm)
 	add_library(glm::glm_shared ALIAS glm_shared)
 endif()
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
