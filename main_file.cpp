@@ -40,12 +40,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <unordered_map>
 
+#include "static/models/walls.h"
 // Constants
 const float INITIAL_SPEED = 2.0f;
 const float CAMERA_ROTATION_LIMIT = glm::pi<float>() / 2;
 const float FOV = 50.0f * glm::pi<float>() / 180.0f;
 const float NEAR_PLANE = 0.01f;
-const float FAR_PLANE = 50.0f;
+const float FAR_PLANE = 100.0f;
 
 // Global Variables
 float aspectRatio = 1;
@@ -171,7 +172,17 @@ void drawFloor(const glm::mat4 &M) {
   glDisableVertexAttribArray(
       sp->a("normal")); // Disable sending data to the attribute normal
 }
-
+void drawWalls(const glm::mat4 &M, float skibidi[], int vertexCount) {
+  glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
+  glEnableVertexAttribArray(sp->a("vertex"));
+  glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0, skibidi);
+  glEnableVertexAttribArray(sp->a("color"));
+  glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0, skibidi);
+  glDrawArrays(GL_TRIANGLES, 0, vertexCount); // Draw the object
+  glDisableVertexAttribArray(sp->a("color"));
+  glDisableVertexAttribArray(
+      sp->a("vertex")); // Disable sending data to the attribute vertex
+}
 // Helper function to draw a cube
 void drawCube(const glm::mat4 &M) {
   glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
@@ -210,8 +221,13 @@ void drawCube(const glm::mat4 &M) {
 void drawSurroundings() {
   glm::mat4 M = glm::mat4(1.0f);
   drawFloor(M);
-  // drawCube(M);
 
+  int cunt = sizeof(FirstWallVertices) / sizeof(float) / 4;
+  drawWalls(M, FirstWallVertices, cunt);
+  cunt = sizeof(SecondWallVertices1) / sizeof(float) / 4;
+  drawWalls(M, SecondWallVertices1, cunt);
+  //
+  //
   glm::mat4 Mp1 = glm::translate(M, glm::vec3(-5.0f, 0.0f, -5.0f));
   drawCube(Mp1);
 

@@ -39,7 +39,8 @@ float floorVertexNormals[] = {
 
 float floorTexCoords[] = {
     // Wall 3
-    1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+    50.0f, 50.0f, 0.0f,  0.0f, 0.0f, 50.0f,
+    50.0f, 50.0f, 50.0f, 0.0f, 0.0f, 0.0f,
 };
 
 #endif // MYCUBE_H_INCLUDED

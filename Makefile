@@ -11,7 +11,7 @@ main_file: $(FILES) $(HEADERS)
 
 # Generate compile_commands.json for LSP
 compile_commands.json: Makefile
-	bear -- make
+	bear -- make $(LIBS)
 
 .PHONY: clean
 clean:
