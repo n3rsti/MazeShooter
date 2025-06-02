@@ -19,7 +19,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/scalar_constants.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "src/maze/maze.h"
 #include <cmath>
+#include <iostream>
+#include <ostream>
 #include <vector>
 #define GLM_FORCE_RADIANS
 
@@ -42,11 +45,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "static/models/walls.h"
 // Constants
-const float INITIAL_SPEED = 2.0f;
+const float INITIAL_SPEED = 10.0f;
 const float CAMERA_ROTATION_LIMIT = glm::pi<float>() / 2;
 const float FOV = 50.0f * glm::pi<float>() / 180.0f;
 const float NEAR_PLANE = 0.01f;
 const float FAR_PLANE = 100.0f;
+
+const int MAZE_WIDTH = 71;  // Width of the maze
+const int MAZE_HEIGHT = 71; // Height of the maze
 
 // Global Variables
 float aspectRatio = 1;
@@ -56,6 +62,7 @@ float sensitivity = 0.5f;
 ShaderProgram *sp; // Pointer to the shader program
 Camera *camera;
 Movement *movement;
+Maze *maze;
 
 GLuint tex0;
 GLuint tex1;
@@ -133,6 +140,10 @@ void initOpenGLProgram(GLFWwindow *window) {
   camera = new Camera(CAMERA_ROTATION_LIMIT, FOV, NEAR_PLANE, FAR_PLANE,
                       sensitivity, aspectRatio);
   movement = new Movement(INITIAL_SPEED);
+    maze = new Maze(MAZE_WIDTH, MAZE_HEIGHT);
+    maze->generate_maze(35, 35); // Generate the maze starting from (1, 1)
+
+    maze->print_maze(); // Print the generated maze to the console
 
   tex0 = readTexture("static/img/metal.png");
   tex1 = readTexture("static/img/sky.png");
@@ -172,20 +183,23 @@ void drawFloor(const glm::mat4 &M) {
   glDisableVertexAttribArray(
       sp->a("normal")); // Disable sending data to the attribute normal
 }
-void drawWalls(const glm::mat4 &M, float skibidi[], int vertexCount) {
-  glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
-  glEnableVertexAttribArray(sp->a("vertex"));
-  glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0, skibidi);
-  glEnableVertexAttribArray(sp->a("color"));
-  glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0, skibidi);
-  glDrawArrays(GL_TRIANGLES, 0, vertexCount); // Draw the object
-  glDisableVertexAttribArray(sp->a("color"));
-  glDisableVertexAttribArray(
-      sp->a("vertex")); // Disable sending data to the attribute vertex
+
+
+void printMatrix(const glm::mat4& mat) {
+    for (int row = 0; row < 4; ++row) {
+        std::cout << "[ ";
+        for (int col = 0; col < 4; ++col) {
+            std::cout << mat[col][row] << " ";  // note: column-major order!
+        }
+        std::cout << "]\n";
+    }
+    std::cout << std::endl;
 }
 // Helper function to draw a cube
-void drawCube(const glm::mat4 &M) {
-  glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
+void drawCube(const glm::mat4 &M, float x, float z) {
+  glm::mat4 M_translate = glm::translate(M, glm::vec3(x, 0.0f, z));
+
+  glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M_translate));
   glEnableVertexAttribArray(sp->a("vertex"));
   glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0, myCubeVertices);
 
@@ -218,21 +232,23 @@ void drawCube(const glm::mat4 &M) {
       sp->a("normal")); // Disable sending data to the attribute normal
 }
 
-void drawSurroundings() {
-  glm::mat4 M = glm::mat4(1.0f);
-  drawFloor(M);
 
-  int cunt = sizeof(FirstWallVertices) / sizeof(float) / 4;
-  drawWalls(M, FirstWallVertices, cunt);
-  cunt = sizeof(SecondWallVertices1) / sizeof(float) / 4;
-  drawWalls(M, SecondWallVertices1, cunt);
-  //
-  //
-  glm::mat4 Mp1 = glm::translate(M, glm::vec3(-5.0f, 0.0f, -5.0f));
-  drawCube(Mp1);
+void drawMaze(const glm::mat4 &M) {
 
-  glm::mat4 Mp2 = glm::translate(Mp1, glm::vec3(10.0f, 0.0f, 0.0f));
-  drawCube(Mp2);
+int c = 0;
+  for (int y = 0; y < maze->height; ++y) {
+    for (int x = 0; x < maze->width; ++x) {
+      if (maze->maze[y][x] == 1) { // If it's a wall
+        float posX = static_cast<float>(x);
+        float posZ = static_cast<float>(y);
+        drawCube(M, x - 35, y - 35);
+        c++;
+
+      }
+    }
+  }
+
+    // std::cout << "Number of walls drawn: " << c << std::endl;
 }
 
 // Draw scene
@@ -241,7 +257,12 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
 
   sp->use();
   camera->updateCamera(x_pos, z_pos, sp);
-  drawSurroundings();
+
+
+  glm::mat4 M = glm::mat4(1.0f);
+  drawFloor(M);
+    drawMaze(M);
+
 
   glfwSwapBuffers(window);
 }
@@ -284,7 +305,7 @@ int main(void) {
     angle_x += movement->x_move * glfwGetTime();
     angle_z += movement->z_move * glfwGetTime();
 
-    printf("Angle X: %f, Angle Z: %f\n", angle_x, angle_z);
+    // printf("Angle X: %f, Angle Z: %f\n", angle_x, angle_z);
     glfwSetTime(0);
 
     drawScene(window, angle_x, angle_z);

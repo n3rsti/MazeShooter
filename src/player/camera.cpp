@@ -35,7 +35,7 @@ void Camera::cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
 // Create view, perspective matrices based on x, z position coordinates and
 // camera rotation
 void Camera::updateCamera(float x_pos, float z_pos, ShaderProgram *sp) {
-  glm::vec3 eye = glm::vec3(x_pos, 0.0f, z_pos);
+  glm::vec3 eye = glm::vec3(x_pos, 10.0f, z_pos);
   glm::vec3 center = glm::vec3(x_pos, 0.0f, z_pos + 0.2f);
   glm::vec3 relative = center - eye;
 
