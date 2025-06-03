@@ -1,10 +1,10 @@
-LIBS=-lGL -lglfw -lGLEW
-HEADERS=constants.h lodepng.h static/models/myCube.h static/models/myTeapot.h shaderprogram.h src/player/movement.h src/player/camera.h src/maze/maze.h static/models/floor.h
-FILES=lodepng.cpp main_file.cpp shaderprogram.cpp src/player/movement.cpp src/player/camera.cpp src/maze/maze.cpp
+LIBS=-lGL -lglfw -lGLEW -lassimp
+HEADERS=constants.h lodepng.h static/models/myCube.h static/models/myTeapot.h shaderprogram.h src/player/movement.h src/player/camera.h src/maze/maze.h static/models/floor.h src/model/model.h
+FILES=lodepng.cpp main_file.cpp shaderprogram.cpp src/player/movement.cpp src/player/camera.cpp src/maze/maze.cpp src/model/model.cpp
 
 # Find system include paths for GLEW and GLFW using pkg-config
 # Add local include directory first for LSP to find headers
-CPPFLAGS=$(shell pkg-config --cflags glew glfw3) -I.
+CPPFLAGS=$(shell pkg-config --cflags glew glfw3 assimp) -I.
 
 main_file: $(FILES) $(HEADERS)
 	g++ -o main_file $(FILES) $(CPPFLAGS) $(LIBS) -I.

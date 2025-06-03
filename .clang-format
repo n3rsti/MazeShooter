@@ -1,0 +1,3 @@
+SortIncludes: true
+IncludeBlocks: Merge # or Preserve
+IndentWidth: 4
