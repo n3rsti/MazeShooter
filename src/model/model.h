@@ -18,7 +18,8 @@ struct Mesh {
 
 class Model {
   public:
-    void loadModel(const std::string &pFile, ShaderProgram *sp);
+    void loadModel(const std::string &pFile, ShaderProgram *sp,
+                   std::vector<GLuint> &textures);
     void processNode(aiNode *node, const aiScene *scene);
     void processMesh(aiMesh *mesh, const aiScene *scene);
     void drawMesh(Mesh *mesh, const glm::mat4 &M);
@@ -26,6 +27,7 @@ class Model {
 
     std::vector<Mesh> meshes;
     ShaderProgram *shaderprogram;
+    std::vector<GLuint> textures;
 };
 
 #endif

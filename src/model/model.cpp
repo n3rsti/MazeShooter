@@ -11,7 +11,10 @@
 #include <string>
 #include <vector>
 
-void Model::loadModel(const std::string &pFile, ShaderProgram *sp) {
+void Model::loadModel(const std::string &pFile, ShaderProgram *sp,
+                      std::vector<GLuint> &textures) {
+
+    this->textures = textures;
     shaderprogram = sp;
     Assimp::Importer importer;
     const aiScene *scene = importer.ReadFile(
@@ -97,6 +100,16 @@ void Model::drawMesh(Mesh *mesh, const glm::mat4 &M) {
         glEnableVertexAttribArray(mesh->texCoordsAttributes[i]);
         glVertexAttribPointer(mesh->texCoordsAttributes[i], 2, GL_FLOAT, false,
                               0, mesh->mesh->mTextureCoords[0]);
+
+        glDisableVertexAttribArray(mesh->texCoordsAttributes[i]);
+    }
+
+    for (unsigned int i = 0; i < textures.size(); i++) {
+        glActiveTexture(GL_TEXTURE0 + i + 1);
+        glBindTexture(GL_TEXTURE_2D, textures[i]);
+        glUniform1i(
+            shaderprogram->u(("textureMap" + std::to_string(i + 1)).c_str()),
+            i + 1);
     }
 
     glEnableVertexAttribArray(shaderprogram->a("normal"));
@@ -110,8 +123,6 @@ void Model::drawMesh(Mesh *mesh, const glm::mat4 &M) {
               << std::endl;
 
     glDisableVertexAttribArray(shaderprogram->a("vertex"));
-    glDisableVertexAttribArray(shaderprogram->a("texCoord0"));
-    glDisableVertexAttribArray(shaderprogram->a("texCoord1"));
     // glDisableVertexAttribArray(sp->a("texCoord2"));
     // glDisableVertexAttribArray(sp->a("texCoord3"));
     glDisableVertexAttribArray(shaderprogram->a("normal"));

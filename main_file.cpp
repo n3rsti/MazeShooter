@@ -65,6 +65,7 @@ float aspectRatio = 1;
 float sensitivity = 0.5f;
 
 ShaderProgram *sp; // Pointer to the shader program
+ShaderProgram *csp;
 Camera *camera;
 Movement *movement;
 Maze *maze;
@@ -143,6 +144,8 @@ void initOpenGLProgram(GLFWwindow *window) {
         glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
     sp = new ShaderProgram("v_simplest.glsl", NULL, "f_simplest.glsl");
+    csp = new ShaderProgram("shaders/v_crosshair.glsl", NULL,
+                            "shaders/f_crosshair.glsl");
     camera = new Camera(CAMERA_ROTATION_LIMIT, FOV, NEAR_PLANE, FAR_PLANE,
                         sensitivity, aspectRatio);
     maze = new Maze(MAZE_WIDTH, MAZE_HEIGHT);
@@ -154,8 +157,47 @@ void initOpenGLProgram(GLFWwindow *window) {
     tex0 = readTexture("static/img/metal.png");
     tex1 = readTexture("static/img/sky.png");
     grassTex = readTexture("static/img/grass.png");
+
+    std::vector<GLuint> treeTextures;
+    treeTextures.push_back(readTexture("static/img/Tree01_Normal.png"));
     treeModel = new Model();
-    treeModel->loadModel(std::string("static/models/Tree01_OBJ.obj"), sp);
+    treeModel->loadModel(std::string("static/models/Tree01_OBJ.obj"), sp,
+                         treeTextures);
+}
+
+void drawCrosshair(const glm::mat4 &M) {
+    glDisable(GL_DEPTH_TEST);
+    glm::mat4 V = glm::mat4(1.0f);
+    glm::mat4 P = glm::mat4(1.0f);
+    glUniformMatrix4fv(sp->u("M"), 1, GL_FALSE, glm::value_ptr(M));
+    glUniformMatrix4fv(sp->u("V"), 1, GL_FALSE, glm::value_ptr(V));
+    glUniformMatrix4fv(sp->u("P"), 1, GL_FALSE, glm::value_ptr(P));
+
+    float crosshairVertices[] = {-0.03f, 0.0f,  0.0f, 1.0f,   0.03f, 0.0f,
+                                 0.0f,   1.0f,  0.0f, -0.03f, 0.0f,  1.0f,
+                                 0.0f,   0.03f, 0.0f, 1.0f};
+    float crosshairColor[] = {1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+                              1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f};
+
+    GLuint tempVBO;
+    glGenBuffers(1, &tempVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, tempVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(crosshairVertices), crosshairVertices,
+                 GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(sp->a("vertex"));
+    glEnableVertexAttribArray(sp->a("color"));
+    glVertexAttribPointer(sp->a("color"), 4, GL_FLOAT, false, 0,
+                          crosshairColor);
+    glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glLineWidth(5.0f);
+    glDrawArrays(GL_LINES, 0, 4);
+    glDisableVertexAttribArray(sp->a("color"));
+    glDisableVertexAttribArray(sp->a("vertex"));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glDeleteBuffers(1, &tempVBO);
+
+    glEnable(GL_DEPTH_TEST);
 }
 
 // Free OpenGL resources
@@ -203,6 +245,50 @@ void printMatrix(const glm::mat4 &mat) {
         std::cout << "]\n";
     }
     std::cout << std::endl;
+}
+
+void drawCrosshair() {
+    csp->use();
+    glm::mat4 identity = glm::mat4(1.0f);
+    glUniformMatrix4fv(csp->u("M"), 1, GL_FALSE, glm::value_ptr(identity));
+    glUniformMatrix4fv(csp->u("V"), 1, GL_FALSE, glm::value_ptr(identity));
+    glUniformMatrix4fv(csp->u("P"), 1, GL_FALSE, glm::value_ptr(identity));
+
+    float crosshairVertices[] = {-0.03f, 0.0f,  0.0f, 1.0f,   0.03f, 0.0f,
+                                 0.0f,   1.0f,  0.0f, -0.03f, 0.0f,  1.0f,
+                                 0.0f,   0.03f, 0.0f, 1.0f};
+
+    float crosshairColor[] = {1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+                              1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f};
+    GLuint vao, vbo[2];
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(2, vbo);
+
+    // Vertices
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(crosshairVertices), crosshairVertices,
+                 GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glEnableVertexAttribArray(0);
+
+    // Colors
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(crosshairColor), crosshairColor,
+                 GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glEnableVertexAttribArray(1);
+
+    glLineWidth(5.0f);
+    glDrawArrays(GL_LINES, 0, 4);
+
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glDeleteBuffers(2, vbo);
+    glDeleteVertexArrays(1, &vao);
 }
 // Helper function to draw a cube
 void drawCube(const glm::mat4 &M, float x, float z) {
@@ -276,7 +362,11 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
     drawFloor(M);
     drawMaze(M);
 
+    // drawCrosshair(M);
+    drawCrosshair();
+    sp->use();
     treeModel->draw(M); // Draw the tree model
+    //
 
     glfwSwapBuffers(window);
 }
