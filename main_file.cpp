@@ -45,7 +45,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "static/models/walls.h"
 // Constants
-const float INITIAL_SPEED = 10.0f;
+const float INITIAL_SPEED = 3.0f;
 const float CAMERA_ROTATION_LIMIT = glm::pi<float>() / 2;
 const float FOV = 50.0f * glm::pi<float>() / 180.0f;
 const float NEAR_PLANE = 0.01f;
@@ -139,11 +139,11 @@ void initOpenGLProgram(GLFWwindow *window) {
   sp = new ShaderProgram("v_simplest.glsl", NULL, "f_simplest.glsl");
   camera = new Camera(CAMERA_ROTATION_LIMIT, FOV, NEAR_PLANE, FAR_PLANE,
                       sensitivity, aspectRatio);
-  movement = new Movement(INITIAL_SPEED);
-    maze = new Maze(MAZE_WIDTH, MAZE_HEIGHT);
-    maze->generate_maze(35, 35); // Generate the maze starting from (1, 1)
+  maze = new Maze(MAZE_WIDTH, MAZE_HEIGHT);
+  maze->generate_maze(35, 35); // Generate the maze starting from (1, 1)
 
-    maze->print_maze(); // Print the generated maze to the console
+  // maze->print_maze(); // Print the generated maze to the console
+  movement = new Movement(INITIAL_SPEED, maze);
 
   tex0 = readTexture("static/img/metal.png");
   tex1 = readTexture("static/img/sky.png");
@@ -184,16 +184,15 @@ void drawFloor(const glm::mat4 &M) {
       sp->a("normal")); // Disable sending data to the attribute normal
 }
 
-
-void printMatrix(const glm::mat4& mat) {
-    for (int row = 0; row < 4; ++row) {
-        std::cout << "[ ";
-        for (int col = 0; col < 4; ++col) {
-            std::cout << mat[col][row] << " ";  // note: column-major order!
-        }
-        std::cout << "]\n";
+void printMatrix(const glm::mat4 &mat) {
+  for (int row = 0; row < 4; ++row) {
+    std::cout << "[ ";
+    for (int col = 0; col < 4; ++col) {
+      std::cout << mat[col][row] << " "; // note: column-major order!
     }
-    std::cout << std::endl;
+    std::cout << "]\n";
+  }
+  std::cout << std::endl;
 }
 // Helper function to draw a cube
 void drawCube(const glm::mat4 &M, float x, float z) {
@@ -232,23 +231,24 @@ void drawCube(const glm::mat4 &M, float x, float z) {
       sp->a("normal")); // Disable sending data to the attribute normal
 }
 
-
 void drawMaze(const glm::mat4 &M) {
 
-int c = 0;
+  float blockSize = 2.0f;
+  float offsetX = maze->width - 1;
+  float offsetZ = maze->height - 1;
+
+  // Draw each wall in the maze
   for (int y = 0; y < maze->height; ++y) {
     for (int x = 0; x < maze->width; ++x) {
-      if (maze->maze[y][x] == 1) { // If it's a wall
-        float posX = static_cast<float>(x);
-        float posZ = static_cast<float>(y);
-        drawCube(M, x - 35, y - 35);
-        c++;
-
+      if (maze->maze[y][x] == 1) {
+        float posX = x * blockSize - offsetX;
+        float posZ = y * blockSize - offsetZ;
+        drawCube(M, posX, posZ);
       }
     }
   }
 
-    // std::cout << "Number of walls drawn: " << c << std::endl;
+  // std::cout << "Number of walls drawn: " << c << std::endl;
 }
 
 // Draw scene
@@ -258,11 +258,9 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
   sp->use();
   camera->updateCamera(x_pos, z_pos, sp);
 
-
   glm::mat4 M = glm::mat4(1.0f);
   drawFloor(M);
-    drawMaze(M);
-
+  drawMaze(M);
 
   glfwSwapBuffers(window);
 }
@@ -300,7 +298,7 @@ int main(void) {
 
   glfwSetTime(0);
   while (!glfwWindowShouldClose(window)) {
-    movement->updateMovement(camera->x_rotation, keyStates);
+    movement->updateMovement(camera->x_rotation, keyStates, angle_x, angle_z);
 
     angle_x += movement->x_move * glfwGetTime();
     angle_z += movement->z_move * glfwGetTime();

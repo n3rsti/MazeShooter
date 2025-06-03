@@ -10,24 +10,22 @@
 // myCubeC2 - TBN^-1 matrix column
 // myCubeC3 - TBN^-1 matrix column
 
-#define FLOOR_SIZE 35.0f
+#define FLOOR_SIZE 71.0f
 
 int floorVertexCount = 6;
 
 float floorVertices[] = {
-    -FLOOR_SIZE, -1.0f, -FLOOR_SIZE, 1.0f,   FLOOR_SIZE, -1.0f,
+    -FLOOR_SIZE, -1.0f, -FLOOR_SIZE, 1.0f,  FLOOR_SIZE,  -1.0f,
     FLOOR_SIZE,  1.0f,  FLOOR_SIZE,  -1.0f, -FLOOR_SIZE, 1.0f,
 
     -FLOOR_SIZE, -1.0f, -FLOOR_SIZE, 1.0f,  -FLOOR_SIZE, -1.0f,
-    FLOOR_SIZE,  1.0f,  FLOOR_SIZE,  -1.0f,  FLOOR_SIZE, 1.0f,
+    FLOOR_SIZE,  1.0f,  FLOOR_SIZE,  -1.0f, FLOOR_SIZE,  1.0f,
 };
 
 float floorNormals[] = {
-    0.0f, -1.0f, 0.0f,  0.0f,  0.0f, -1.0f,
-    0.0f, 0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
+    0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
 
-    0.0f, -1.0f, 0.0f,  0.0f,  0.0f, -1.0f,
-    0.0f, 0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
+    0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
 };
 
 float floorVertexNormals[] = {
@@ -39,7 +37,7 @@ float floorVertexNormals[] = {
 };
 
 float floorTexCoords[] = {
-    FLOOR_SIZE, FLOOR_SIZE, 0.0f, 0.0f, 0.0f, FLOOR_SIZE,
+    FLOOR_SIZE, FLOOR_SIZE, 0.0f,       0.0f, 0.0f, FLOOR_SIZE,
     FLOOR_SIZE, FLOOR_SIZE, FLOOR_SIZE, 0.0f, 0.0f, 0.0f,
 };
 
