@@ -32,6 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "constants.h"
 #include "lodepng.h"
 #include "shaderprogram.h"
+#include "src/model/model.h"
 #include "src/player/camera.h"
 #include "src/player/movement.h"
 #include "static/models/floor.h"
@@ -107,29 +108,6 @@ void windowResizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
-GLuint readTexture(const char *filename) {
-    GLuint tex;
-    glActiveTexture(GL_TEXTURE0);
-
-    // Read into computers memory
-    std::vector<unsigned char> image; // Allocate memory
-    unsigned width, height;           // Variables for image size
-    // Read the image
-    unsigned error = lodepng::decode(image, width, height, filename);
-
-    // Import to graphics card memory
-    glGenTextures(1, &tex);            // Initialize one handle
-    glBindTexture(GL_TEXTURE_2D, tex); // Activate handle
-    // Copy image to graphics cards memory reprezented by the active handle
-    glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, (unsigned char *)image.data());
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    return tex;
-}
-
 // Initialize OpenGL
 void initOpenGLProgram(GLFWwindow *window) {
     glClearColor(0, 0, 0, 1);
@@ -158,11 +136,8 @@ void initOpenGLProgram(GLFWwindow *window) {
     tex1 = readTexture("static/img/sky.png");
     grassTex = readTexture("static/img/grass.png");
 
-    std::vector<GLuint> treeTextures;
-    treeTextures.push_back(readTexture("static/img/Tree01_Normal.png"));
     treeModel = new Model();
-    treeModel->loadModel(std::string("static/models/Tree01_OBJ.obj"), sp,
-                         treeTextures);
+    treeModel->loadModel(std::string("static/models/Tree01_OBJ.obj"), sp);
 }
 
 void drawCrosshair(const glm::mat4 &M) {
@@ -221,7 +196,7 @@ void drawFloor(const glm::mat4 &M) {
 
     glActiveTexture(GL_TEXTURE0); // Assign texture tex0 to the 0-th texturing
                                   // unit
-    glBindTexture(GL_TEXTURE_2D, grassTex);
+    glBindTexture(GL_TEXTURE_3D, grassTex);
     glUniform1i(
         sp->u("textureMap0"),
         0); // Associate sampler textureMap0 with the 0-th texturing unit
