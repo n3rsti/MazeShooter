@@ -66,7 +66,7 @@ Movement *movement;
 Maze *maze;
 Model *treeModel;
 
-GLuint tex0, tex1, tex2, tex3, tex4;
+GLuint tex0, tex1, enemyDiffusion, enemyNormal, enemyS, enemyAO, enemyE;
 GLuint grassTex;
 GLuint left;
 GLuint right;
@@ -134,14 +134,17 @@ void initOpenGLProgram(GLFWwindow *window) {
     grassTex = readTexture("static/img/grass.png");
     left = readTexture("static/img/bron.png");
     right = readTexture("static/img/lampa.png");
-    tex2 = readTexture("static/models/zengwu_battle@body@D.png");
-    tex3 = readTexture("static/models/zengwu_battle@body@S.png");
-    tex4 = readTexture("static/models/zengwu_battle@body@N.png");
+    enemyDiffusion = readTexture("static/models/zengwu_battle@body@D.png");
+    enemyNormal = readTexture("static/models/zengwu_battle@body@N.png");
+    enemyS = readTexture("static/models/zengwu_battle@body@S.png");
+    enemyAO = readTexture("static/models/zengwu_battle@body@ao.png");
+    enemyE = readTexture("static/models/zengwu_battle@body@e.png");
     brick_tex0 = readTexture("static/img/bricks2_diffuse.png");
     brick_tex1 = readTexture("static/img/bricks2_normal.png");
     brick_tex2 = readTexture("static/img/bricks2_height.png");
 
-    std::vector<GLuint> treeTextures = {tex2, tex3, tex4};
+    std::vector<GLuint> treeTextures = {enemyDiffusion, enemyNormal, enemyAO,
+                                        enemyAO, enemyE};
 
     treeModel = new Model();
     treeModel->loadModel(std::string("static/models/Model.obj"), model_sp,
@@ -420,6 +423,8 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
     drawMaze(M);
 
     model_sp->use();
+
+    glUniform3fv(model_sp->u("cameraPos"), 1, glm::value_ptr(eye));
     glm::mat4 M_y_0 = glm::translate(M, glm::vec3(0.0f, -1.0f, 0.0f));
     camera->updateCamera(x_pos, z_pos, model_sp);
     treeModel->Draw(M_y_0);

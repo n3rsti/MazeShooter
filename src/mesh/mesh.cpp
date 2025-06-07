@@ -18,7 +18,6 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices,
 };
 
 void Mesh::Draw(const glm::mat4 &M, ShaderProgram *sp) {
-
     glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
     glBindVertexArray(VAO);
     // glUniform3f(sp->u("kd"), material.kd.r, material.kd.g, material.kd.b);

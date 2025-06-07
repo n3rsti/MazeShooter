@@ -1,63 +1,59 @@
 #version 330 core
 
 uniform sampler2D textureMap0; // diffuse map
-uniform sampler2D textureMap1; // normal map (packed in RGB)
-uniform sampler2D textureMap2; // height map (for parallax)
+uniform sampler2D textureMap1; // normal map
+uniform sampler2D textureMap2; // height map
+uniform sampler2D textureMap3; // ambient occlussion
+uniform sampler2D textureMap4; // emissive
 
 in vec4 ic;
-in vec3 lightDirTS;
-in vec3 viewDirTS;
+in vec4 n;
+in vec4 l;
+in vec4 v;
 in vec2 iTexCoord0;
 
 out vec4 pixelColor;
 
-vec2 parallaxTexCoords(vec3 viewDir, vec2 texCoords, float heightScale, float numLayers) {
-    // Approximate parallax mapping using linear search
-    float layerDepth = 1.0 / numLayers;
-    float currentLayerDepth = 0.0;
+vec2 parallaxTexCoords(vec4 v, vec2 t, float h, float s) {
+    vec2 ti = v.xy / s;
+    float hi = v.z / s;
+    vec2 tc = t;
+    float hc = h;
+    float ht = texture(textureMap2, tc).r * h;
 
-    vec2 P = viewDir.xy * heightScale;
-    vec2 deltaTexCoords = P / numLayers;
+    if (v.z <= 0.0) discard;
 
-    vec2 currentTexCoords = texCoords;
-    float currentDepthMapValue = texture(textureMap2, currentTexCoords).r;
-
-    while (currentLayerDepth < currentDepthMapValue) {
-        currentTexCoords -= deltaTexCoords;
-        currentDepthMapValue = texture(textureMap2, currentTexCoords).r;
-        currentLayerDepth += layerDepth;
-
-        // Optional: clamp texcoords inside [0,1]
-        if (currentTexCoords.x < 0.0 || currentTexCoords.x > 1.0 || currentTexCoords.y < 0.0 || currentTexCoords.y > 1.0)
-            break;
-    }
-
-    return currentTexCoords;
+    return tc; // Note: You can insert full parallax loop here if needed
 }
 
 void main(void) {
-    vec3 viewDir = normalize(viewDirTS);
+    vec4 mv = normalize(v);
+    vec2 tc = parallaxTexCoords(mv, iTexCoord0, 0.1, 1000.0);
 
-    // Parallax offset the texture coordinates
-    vec2 parallaxUV = parallaxTexCoords(viewDir, iTexCoord0, 0.1, 20.0);
+    vec4 ml = normalize(l);
+    vec4 mn = normalize(vec4(texture(textureMap1, tc).rgb * 2.0 - 1.0, 0.0));
+    vec4 mr = reflect(-ml, mn);
 
-    // Sample normal map and transform to [-1,1]
-    vec3 normalSample = texture(textureMap1, parallaxUV).rgb;
-    vec3 normalTS = normalize(normalSample * 2.0 - 1.0);
+    vec4 kd = texture(textureMap0, tc); 
+    vec4 ks = vec4(1.0);
 
-    vec3 lightDir = normalize(lightDirTS);
-    vec3 reflectDir = reflect(-lightDir, normalTS);
+    float nl = clamp(dot(mn, ml), 0.0, 1.0);
+    nl = mix(0.4, 1.0, pow(nl, 2.0)); // softened light, as in earlier camera shader
 
-    // Sample diffuse color
-    vec4 kd = texture(textureMap0, parallaxUV);
-    vec4 ks = vec4(1.0); // Specular color hardcoded to white
+    float rv = pow(clamp(dot(mr, mv), 0.0, 1.0), 25.0);
 
-    // Lighting
-    float NdotL = max(dot(normalTS, lightDir), 0.0);
-    float RdotV = pow(max(dot(reflectDir, viewDir), 0.0), 25.0);
+    float dist = length(v.xyz);
+    float att = 1.0 / (0.2 + 0.15 * dist + 0.05 * dist * dist);
 
-    vec4 diffuse = vec4(kd.rgb * NdotL, kd.a);
-    vec4 specular = vec4(ks.rgb * RdotV, 0.0);
+    float ao = texture(textureMap3, tc).r;
 
-    pixelColor = kd;
+    vec3 ambient = vec3(0.08);
+    vec3 lightColor = vec3(0.7, 0.5, 0.2);
+
+    vec3 emissive = texture(textureMap4, tc).rgb;
+
+    vec3 lighting = (nl * lightColor + ambient + ks.rgb * rv) * att;
+    vec3 finalColor = kd.rgb * lighting;
+
+    pixelColor = vec4(finalColor, 1.0);
 }

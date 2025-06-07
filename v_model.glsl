@@ -3,6 +3,7 @@
 uniform mat4 P;
 uniform mat4 V;
 uniform mat4 M;
+uniform vec3 cameraPos;
 
 layout(location = 0) in vec3 vertex;
 layout(location = 1) in vec3 normal;
@@ -10,9 +11,11 @@ layout(location = 2) in vec2 texCoord0;
 layout(location = 3) in vec3 tangent;
 layout(location = 4) in vec3 bitangent;
 
+out vec4 ic;
+out vec4 n;
+out vec4 l;
+out vec4 v;
 out vec2 iTexCoord0;
-out vec3 lightDirTS;
-out vec3 viewDirTS;
 
 void main() {
     vec3 posWorld = vec3(M * vec4(vertex, 1.0));
@@ -22,15 +25,13 @@ void main() {
 
     mat3 TBN = mat3(tangentWorld, bitangentWorld, normalWorld);
 
-    vec3 lightPosWorld = vec3(0.0, 0.0, -6.0);
-    vec3 viewPosWorld = vec3(0.0, 0.0, 0.0);
+    vec3 lightVec = cameraPos - posWorld;
+    vec3 viewVec = cameraPos - posWorld;
 
-    vec3 lightVec = lightPosWorld - posWorld;
-    vec3 viewVec = viewPosWorld - posWorld;
-
-    lightDirTS = normalize(TBN * lightVec);
-    viewDirTS = normalize(TBN * viewVec);
-
+    l = vec4(TBN * lightVec, 0.0);
+    v = vec4(TBN * viewVec, 0.0);
+    n = vec4(0.0, 0.0, 1.0, 0.0); // base TS normal
+    ic = vec4(1.0); // optional color, unused in fragment currently
     iTexCoord0 = texCoord0;
 
     gl_Position = P * V * M * vec4(vertex, 1.0);
