@@ -369,7 +369,7 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
     drawFloor(M);
     drawMaze(M);
     // drawHud(left, right);
-    treeModel->draw(M);
+    treeModel->Draw(M, sp);
     drawCrosshair(M);
     glfwSwapBuffers(window);
 }

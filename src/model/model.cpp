@@ -8,6 +8,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "lodepng.h"
 #include "shaderprogram.h"
+#include "src/mesh/mesh.h"
 #include <assimp/scene.h>
 #include <iostream>
 #include <ostream>
@@ -76,7 +77,7 @@ void Model::processNode(aiNode *node, const aiScene *scene) {
 
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
         aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-        processMesh(mesh, scene);
+        meshes.push_back(processMesh(mesh, scene));
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
@@ -84,23 +85,59 @@ void Model::processNode(aiNode *node, const aiScene *scene) {
     }
 }
 
-void Model::processMesh(aiMesh *mesh, const aiScene *scene) {
-    if (mesh == nullptr) {
-        std::cerr << "Null mesh encountered." << std::endl;
-        return;
-    }
-
-    Mesh meshData;
-    meshData.mesh = mesh;
+Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
     std::vector<unsigned int> indices;
+
     std::vector<GLint> texCoordNames;
     std::vector<GLuint> meshTextures;
+    std::vector<Vertex> vertices;
 
     for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
-        const aiFace &face = mesh->mFaces[i];
-        for (unsigned int j = 0; j < face.mNumIndices; j++) {
+        aiFace face = mesh->mFaces[i];
+        for (unsigned int j = 0; j < face.mNumIndices; j++)
             indices.push_back(face.mIndices[j]);
+    }
+
+    for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+        Vertex vertex;
+        glm::vec3 vector;
+        vector.x = mesh->mVertices[i].x;
+        vector.y = mesh->mVertices[i].y;
+        vector.z = mesh->mVertices[i].z;
+
+        vertex.Position = vector;
+        if (mesh->HasNormals()) {
+            vector.x = mesh->mNormals[i].x;
+            vector.y = mesh->mNormals[i].y;
+            vector.z = mesh->mNormals[i].z;
+            vertex.Normal = vector;
         }
+
+        if (mesh->mTextureCoords[0]) // does the mesh contain texture
+                                     // coordinates?
+        {
+            glm::vec2 vec;
+            // a vertex can contain up to 8 different texture coordinates. We
+            // thus make the assumption that we won't use models where a vertex
+            // can have multiple texture coordinates so we always take the first
+            // set (0).
+            vec.x = mesh->mTextureCoords[0][i].x;
+            vec.y = mesh->mTextureCoords[0][i].y;
+            vertex.TexCoords = vec;
+            // tangent
+            vector.x = mesh->mTangents[i].x;
+            vector.y = mesh->mTangents[i].y;
+            vector.z = mesh->mTangents[i].z;
+            vertex.Tangent = vector;
+            // bitangent
+            vector.x = mesh->mBitangents[i].x;
+            vector.y = mesh->mBitangents[i].y;
+            vector.z = mesh->mBitangents[i].z;
+            vertex.Bitangent = vector;
+        } else
+            vertex.TexCoords = glm::vec2(0.0f, 0.0f);
+
+        vertices.push_back(vertex);
     }
 
     for (unsigned int i = 0; i < mesh->GetNumUVChannels(); i++) {
@@ -128,73 +165,71 @@ void Model::processMesh(aiMesh *mesh, const aiScene *scene) {
         }
     }
 
-    meshData.indices = indices;
-    meshData.texCoordsAttributes = texCoordNames;
-    meshData.meshTextures = meshTextures;
-    meshes.push_back(meshData);
+    return Mesh(vertices, indices, texCoordNames, meshTextures);
 }
 
-void Model::drawMesh(Mesh *mesh, const glm::mat4 &M) {
+// void Model::drawMesh(Mesh *mesh, const glm::mat4 &M) {
+//
+//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//     if (mesh == nullptr) {
+//         std::cerr << "Null mesh encountered during draw." << std::endl;
+//         return;
+//     }
+//
+//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+//
+//     glUniformMatrix4fv(shaderprogram->u("M"), 1, false, glm::value_ptr(M));
+//     glEnableVertexAttribArray(shaderprogram->a("vertex"));
+//     glVertexAttribPointer(shaderprogram->a("vertex"), 3, GL_FLOAT, false, 0,
+//                           mesh->vertices);
+//
+//     // std::cout << "Texture coordinates count: "
+//     //           << mesh->mesh->mNumUVComponents[0] << std::endl;
+//
+//     for (unsigned int i = 0; i < mesh->texCoordsAttributes.size(); i++) {
+//         glEnableVertexAttribArray(mesh->texCoordsAttributes[i]);
+//         glVertexAttribPointer(mesh->texCoordsAttributes[i], 2, GL_FLOAT,
+//         false,
+//                               0, mesh->mesh->mTextureCoords[0]);
+//
+//         glDisableVertexAttribArray(mesh->texCoordsAttributes[i]);
+//     }
+//
+//     // std::cout << "Number of textures: " << mesh->meshTextures.size()
+//     //           << std::endl;
+//
+//     for (unsigned int i = 0; i < mesh->meshTextures.size(); i++) {
+//         glActiveTexture(GL_TEXTURE0 + i);
+//         glBindTexture(GL_TEXTURE_2D, mesh->meshTextures[i]);
+//         glUniform1i(
+//             shaderprogram->u(("textureMap" + std::to_string(i)).c_str()), i);
+//     }
+//
+//     glEnableVertexAttribArray(shaderprogram->a("normal"));
+//     glVertexAttribPointer(shaderprogram->a("normal"), 3, GL_FLOAT, false, 0,
+//                           mesh->mesh->mNormals);
+//
+//     glDrawElements(GL_TRIANGLES, mesh->indices.size(), GL_UNSIGNED_INT,
+//                    mesh->indices.data());
+//     // std::cout << "Drawing mesh with " << mesh->mesh->mNumVertices
+//     //           << " vertices, " << mesh->indices.size() << " indices"
+//     //           << std::endl;
+//     //
+//     glDisableVertexAttribArray(shaderprogram->a("vertex"));
+//     // glDisableVertexAttribArray(sp->a("texCoord2"));
+//     // glDisableVertexAttribArray(sp->a("texCoord3"));
+//     glDisableVertexAttribArray(shaderprogram->a("normal"));
+//
+//     // Here you would typically bind the VAO and draw the mesh using OpenGL
+//     // For example:
+//     // glBindVertexArray(mesh->VAO);
+//     // glDrawElements(GL_TRIANGLES, mesh->mNumFaces * 3, GL_UNSIGNED_INT, 0);
+// }
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    if (mesh == nullptr) {
-        std::cerr << "Null mesh encountered during draw." << std::endl;
-        return;
-    }
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glUniformMatrix4fv(shaderprogram->u("M"), 1, false, glm::value_ptr(M));
-    glEnableVertexAttribArray(shaderprogram->a("vertex"));
-    glVertexAttribPointer(shaderprogram->a("vertex"), 3, GL_FLOAT, false, 0,
-                          mesh->mesh->mVertices);
-
-    // std::cout << "Texture coordinates count: "
-    //           << mesh->mesh->mNumUVComponents[0] << std::endl;
-
-    for (unsigned int i = 0; i < mesh->texCoordsAttributes.size(); i++) {
-        glEnableVertexAttribArray(mesh->texCoordsAttributes[i]);
-        glVertexAttribPointer(mesh->texCoordsAttributes[i], 2, GL_FLOAT, false,
-                              0, mesh->mesh->mTextureCoords[0]);
-
-        glDisableVertexAttribArray(mesh->texCoordsAttributes[i]);
-    }
-
-    // std::cout << "Number of textures: " << mesh->meshTextures.size()
-    //           << std::endl;
-
-    for (unsigned int i = 0; i < mesh->meshTextures.size(); i++) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_2D, mesh->meshTextures[i]);
-        glUniform1i(
-            shaderprogram->u(("textureMap" + std::to_string(i)).c_str()), i);
-    }
-
-    glEnableVertexAttribArray(shaderprogram->a("normal"));
-    glVertexAttribPointer(shaderprogram->a("normal"), 3, GL_FLOAT, false, 0,
-                          mesh->mesh->mNormals);
-
-    glDrawElements(GL_TRIANGLES, mesh->indices.size(), GL_UNSIGNED_INT,
-                   mesh->indices.data());
-    // std::cout << "Drawing mesh with " << mesh->mesh->mNumVertices
-    //           << " vertices, " << mesh->indices.size() << " indices"
-    //           << std::endl;
-    //
-    glDisableVertexAttribArray(shaderprogram->a("vertex"));
-    // glDisableVertexAttribArray(sp->a("texCoord2"));
-    // glDisableVertexAttribArray(sp->a("texCoord3"));
-    glDisableVertexAttribArray(shaderprogram->a("normal"));
-
-    // Here you would typically bind the VAO and draw the mesh using OpenGL
-    // For example:
-    // glBindVertexArray(mesh->VAO);
-    // glDrawElements(GL_TRIANGLES, mesh->mNumFaces * 3, GL_UNSIGNED_INT, 0);
-}
-
-void Model::draw(const glm::mat4 &M) {
+void Model::Draw(const glm::mat4 &M, ShaderProgram *sp) {
     for (auto &mesh : meshes) {
-        drawMesh(&mesh, M);
+        mesh.Draw(M, sp);
     }
 }
