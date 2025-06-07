@@ -71,6 +71,8 @@ GLuint grassTex;
 GLuint left;
 GLuint right;
 
+GLuint brick_tex0, brick_tex1, brick_tex2;
+
 // Key state tracking
 std::unordered_map<int, bool> keyStates;
 
@@ -127,14 +129,17 @@ void initOpenGLProgram(GLFWwindow *window) {
     // maze->print_maze(); // Print the generated maze to the console
     movement = new Movement(INITIAL_SPEED, maze);
 
-    tex0 = readTexture("static/img/metal.png");
-    tex1 = readTexture("static/img/sky.png");
+    tex0 = readTexture("static/img/ivy-wall.png");
+    tex1 = readTexture("static/img/ivy_wall_diffuse.png");
     grassTex = readTexture("static/img/grass.png");
     left = readTexture("static/img/bron.png");
     right = readTexture("static/img/lampa.png");
     tex2 = readTexture("static/models/zengwu_battle@body@D.png");
     tex3 = readTexture("static/models/zengwu_battle@body@S.png");
     tex4 = readTexture("static/models/zengwu_battle@body@N.png");
+    brick_tex0 = readTexture("static/img/bricks2_diffuse.png");
+    brick_tex1 = readTexture("static/img/bricks2_normal.png");
+    brick_tex2 = readTexture("static/img/bricks2_height.png");
 
     std::vector<GLuint> treeTextures = {tex2, tex3, tex4};
 
@@ -194,40 +199,77 @@ void drawCube(const glm::mat4 &M, float x, float z) {
     glm::mat4 M_translate = glm::translate(M, glm::vec3(x, 0.0f, z));
 
     glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M_translate));
-    glEnableVertexAttribArray(sp->a("vertex"));
-    glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0,
-                          myCubeVertices);
 
-    glEnableVertexAttribArray(sp->a("texCoord0"));
-    glVertexAttribPointer(sp->a("texCoord0"), 2, GL_FLOAT, false, 0,
-                          myCubeTexCoords);
+    glEnableVertexAttribArray(
+        sp->a("vertex")); // Włącz przesyłanie danych do atrybutu vertex
+    glVertexAttribPointer(
+        sp->a("vertex"), 4, GL_FLOAT, false, 0,
+        myCubeVertices); // Wskaż tablicę z danymi dla atrybutu vertex
 
-    glEnableVertexAttribArray(sp->a("normal"));
-    glVertexAttribPointer(sp->a("normal"), 4, GL_FLOAT, false, 0,
-                          myCubeNormals);
+    glEnableVertexAttribArray(
+        sp->a("color")); // Włącz przesyłanie danych do atrybutu color
+    glVertexAttribPointer(
+        sp->a("color"), 4, GL_FLOAT, false, 0,
+        myCubeColors); // Wskaż tablicę z danymi dla atrybutu color
 
-    glActiveTexture(GL_TEXTURE0); // Assign texture tex0 to the 0-th texturing
-                                  // unit
+    glEnableVertexAttribArray(
+        sp->a("normal")); // Włącz przesyłanie danych do atrybutu normal
+    glVertexAttribPointer(
+        sp->a("normal"), 4, GL_FLOAT, false, 0,
+        myCubeNormals); // Wskaż tablicę z danymi dla atrybutu normal
+
+    glEnableVertexAttribArray(
+        sp->a("texCoord0")); // Włącz przesyłanie danych do atrybutu texCoord
+    glVertexAttribPointer(
+        sp->a("texCoord0"), 2, GL_FLOAT, false, 0,
+        myCubeTexCoords); // Wskaż tablicę z danymi dla atrybutu texCoord
+    //
+    glEnableVertexAttribArray(
+        sp->a("c1")); // Włącz przesyłanie danych do atrybutu normal
+    glVertexAttribPointer(
+        sp->a("c1"), 4, GL_FLOAT, false, 0,
+        myCubeC1); // Wskaż tablicę z danymi dla atrybutu normal
+
+    glEnableVertexAttribArray(
+        sp->a("c2")); // Włącz przesyłanie danych do atrybutu normal
+    glVertexAttribPointer(
+        sp->a("c2"), 4, GL_FLOAT, false, 0,
+        myCubeC2); // Wskaż tablicę z danymi dla atrybutu normal
+
+    glEnableVertexAttribArray(
+        sp->a("c3")); // Włącz przesyłanie danych do atrybutu normal
+    glVertexAttribPointer(
+        sp->a("c3"), 4, GL_FLOAT, false, 0,
+        myCubeC3); // Wskaż tablicę z danymi dla atrybutu normal
+
+    glUniform1i(sp->u("textureMap0"), 0);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex0);
-    glUniform1i(
-        sp->u("textureMap0"),
-        0); // Associate sampler textureMap0 with the 0-th texturing unit
 
-    glActiveTexture(GL_TEXTURE1); // Assign texture tex1 to the 1-st texturing
-                                  // unit
+    glUniform1i(sp->u("textureMap1"), 1);
+    glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, tex1);
-    glUniform1i(
-        sp->u("textureMap1"),
-        1); // Associate sampler textureMap1 with the 1-st texturing unit
 
-    glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount); // Draw the object
+    // glUniform1i(sp->u("textureMap2"), 2);
+    // glActiveTexture(GL_TEXTURE2);
+    // glBindTexture(GL_TEXTURE_2D, brick_tex2);
+
+    glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount); // Narysuj obiekt
 
     glDisableVertexAttribArray(
-        sp->a("vertex")); // Disable sending data to the attribute vertex
+        sp->a("vertex")); // Wyłącz przesyłanie danych do atrybutu vertex
     glDisableVertexAttribArray(
-        sp->a("texCoord0")); // Disable sending data to the attribute texCoord0
+        sp->a("color")); // Wyłącz przesyłanie danych do atrybutu color
     glDisableVertexAttribArray(
-        sp->a("normal")); // Disable sending data to the attribute normal
+        sp->a("normal")); // Wyłącz przesyłanie danych do atrybutu normal
+    glDisableVertexAttribArray(
+        sp->a("texCoord0")); // Wyłącz przesyłanie danych do atrybutu texCoord0
+    glDisableVertexAttribArray(
+        sp->a("c1")); // Wyłącz przesyłanie danych do atrybutu texCoord0
+    glDisableVertexAttribArray(
+        sp->a("c2")); // Wyłącz przesyłanie danych do atrybutu texCoord0
+    glDisableVertexAttribArray(
+        sp->a("c3")); // Wyłącz przesyłanie danych do atrybutu texCoord0
 }
 
 void drawMaze(const glm::mat4 &M) {
@@ -370,6 +412,8 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
 
     sp->use();
     camera->updateCamera(x_pos, z_pos, sp);
+    glm::vec3 eye = glm::vec3(x_pos, 0.0f, z_pos); // Pozycja gracza jako kamera
+    glUniform3fv(sp->u("cameraPos"), 1, glm::value_ptr(eye));
 
     glm::mat4 M = glm::mat4(1.0f);
     drawFloor(M);

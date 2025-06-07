@@ -1,32 +1,22 @@
-#version 330
+#version 330 core
 
-//Zmienne jednorodne
-uniform mat4 P;
-uniform mat4 V;
-uniform mat4 M;
+in vec4 vertex;         // sp->a("vertex")
+in vec2 texCoord0;      // sp->a("texCoord0")
+in vec4 normal;         // sp->a("normal")
 
-//Atrybuty
-in vec4 vertex; //wspolrzedne wierzcholka w przestrzeni modelu
-in vec4 color; //kolor związany z wierzchołkiem
-in vec4 normal; //wektor normalny w przestrzeni modelu
-in vec2 texCoord0;
+uniform mat4 M;         // model matrix
+uniform mat4 V;         // view matrix
+uniform mat4 P;         // projection matrix
 
-//Zmienne interpolowane
-out vec4 ic;
-out vec4 l;
-out vec4 n;
-out vec4 v;
-out vec2 iTexCoord0;
+out vec3 fragPos;       // dla światła
+out vec3 fragNormal;    
+out vec2 uv;
 
+void main() {
+    mat4 MVP = P * V * M;
+    gl_Position = MVP * vertex;
 
-void main(void) {
-    vec4 lp = vec4(0, 10, -2, 1); //przestrzeń świata - sun-like position (high up)
-    l = normalize(V * lp - V*M*vertex); //wektor do światła w przestrzeni oka
-    v = normalize(vec4(0, 0, 0, 1) - V * M * vertex); //wektor do obserwatora w przestrzeni oka
-    n = normalize(V * M * normal); //wektor normalny w przestrzeni oka
-    iTexCoord0 = texCoord0;
-
-    ic = color;
-
-    gl_Position=P*V*M*vertex;
+    fragPos = vec3(M * vertex); // pozycja wierzchołka w świecie
+    fragNormal = mat3(transpose(inverse(M))) * vec3(normal); // normalna w świecie
+    uv = texCoord0;
 }

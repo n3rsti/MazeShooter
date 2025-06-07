@@ -1,46 +1,40 @@
-#version 330
+#version 330 core
+
+in vec3 fragPos;
+in vec3 fragNormal;
+in vec2 uv;
 
 uniform sampler2D textureMap0;
 uniform sampler2D textureMap1;
-uniform sampler2D textureMap2;
 
-out vec4 pixelColor; //Zmienna wyjsciowa fragment shadera. Zapisuje sie do niej ostateczny (prawie) kolor piksela
+uniform vec3 cameraPos;
 
-in vec4 ic;
-in vec4 n;
-in vec4 l;
-in vec4 v;
-in vec2 iTexCoord0;
+out vec4 outColor;
 
-void main(void) {
-	// Sun-like lighting parameters
-	vec4 sunColor = vec4(1.0, 0.98, 0.85, 1.0);  // Slightly yellow sun color
-	float ambientStrength = 0.6;                 // Ambient light strength
-	float specularStrength = 0.4;                // Specular reflection strength
-	float shininess = 70.0;                      // Shininess factor (higher = smaller highlight)
+void main() {
+    vec3 normal = normalize(fragNormal);
+    vec3 lightDir = normalize(cameraPos - fragPos);
 
-	//Znormalizowane interpolowane wektory
-	vec4 ml = normalize(l);
-	vec4 mn = normalize(n);
-	vec4 mv = normalize(v);
-	//Wektor odbity
-	vec4 mr = reflect(-ml, mn);
+    // -- Diffuse lighting (kąt padania)
+    float diff = max(dot(normal, lightDir), 0.0);
+    diff = mix(0.4, 1.0, pow(diff, 2.0));  // zawsze co najmniej 0.4 — mniej ostre różnice
 
-	//Parametry powierzchni
-	vec4 kd = texture(textureMap0, iTexCoord0);
-	vec4 ks = texture(textureMap1, iTexCoord0);
+    // -- Attenuacja (punktowe światło)
+    float distance = length(fragPos - cameraPos);
+    float attenuation = 1.0 / (0.2 + 0.15 * distance + 0.05 * distance * distance);
 
-	// Ambient component
-	vec4 ambient = vec4(kd.rgb * ambientStrength, kd.a);
+    // -- Ambient
+    vec3 ambient = vec3(0.08);  // minimalne światło zawsze obecne
 
-	// Diffuse component (directional sunlight)
-	float diff = max(dot(mn, ml), 0.0);
-	vec4 diffuse = vec4(kd.rgb * diff * sunColor.rgb, kd.a);
+    // -- Tekstury i światło
+    vec3 diffuseColor = texture(textureMap0, uv).rgb;
+    vec3 ivyColor = texture(textureMap1, uv).rgb;
+    vec3 finalColor = mix(diffuseColor, ivyColor, 0.1);
 
-	// Specular component
-	float spec = pow(max(dot(mv, mr), 0.0), shininess);
-	vec4 specular = vec4(ks.rgb * spec * specularStrength * sunColor.rgb, 0.0);
+    vec3 lightColor = vec3(0.7, 0.5, 0.2);
+    vec3 lighting = (diff * lightColor + ambient) * attenuation;
 
-	// Combined lighting
-	pixelColor = ambient + diffuse + specular;
+    vec3 result = finalColor * lighting;
+
+    outColor = vec4(result, 1.0);
 }
