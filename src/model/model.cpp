@@ -46,7 +46,9 @@ GLuint readTexture(const char *filename) {
     return tex;
 }
 
-void Model::loadModel(const std::string &pFile, ShaderProgram *sp) {
+void Model::loadModel(const std::string &pFile, ShaderProgram *sp,
+                      std::vector<GLuint> textures) {
+    this->textures = textures;
     shaderprogram = sp;
     Assimp::Importer importer;
     scene = importer.ReadFile(
@@ -89,7 +91,7 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
     std::vector<unsigned int> indices;
 
     std::vector<GLint> texCoordNames;
-    std::vector<GLuint> meshTextures;
+    std::vector<GLuint> meshTextures = textures;
     std::vector<Vertex> vertices;
 
     for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
@@ -149,20 +151,19 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
     aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
     aiString path;
 
-    if (material->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS) {
-        std::string texturePath = path.C_Str();
+    aiColor3D kd(0.0f, 0.0f, 0.0f);
+    if (material->Get(AI_MATKEY_COLOR_DIFFUSE, kd) != AI_SUCCESS) {
+        std::cerr << "can't load kd" << std::endl;
+    }
 
-        // Check if already loaded
-        if (loadedTextures.find(texturePath) != loadedTextures.end()) {
-            // Already loaded, reuse
-            meshTextures.push_back(loadedTextures[texturePath]);
-        } else {
-            // Not loaded yet, so load and store
-            // GLuint textureID = readTexture(texturePath);
-            GLuint textureID = readTexture(texturePath.c_str());
-            loadedTextures[texturePath] = textureID;
-            meshTextures.push_back(textureID);
-        }
+    aiColor3D ks(0.0f, 0.0f, 0.0f);
+    if (material->Get(AI_MATKEY_COLOR_SPECULAR, ks) != AI_SUCCESS) {
+        std::cerr << "can't load ks" << std::endl;
+    }
+
+    float ns;
+    if (material->Get(AI_MATKEY_SHININESS, ns) != AI_SUCCESS) {
+        std::cerr << "can't load ns" << std::endl;
     }
 
     return Mesh(vertices, indices, texCoordNames, meshTextures);
@@ -228,8 +229,8 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene) {
 //     // glDrawElements(GL_TRIANGLES, mesh->mNumFaces * 3, GL_UNSIGNED_INT, 0);
 // }
 
-void Model::Draw(const glm::mat4 &M, ShaderProgram *sp) {
+void Model::Draw(const glm::mat4 &M) {
     for (auto &mesh : meshes) {
-        mesh.Draw(M, sp);
+        mesh.Draw(M, shaderprogram);
     }
 }

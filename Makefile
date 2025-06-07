@@ -18,4 +18,4 @@ clean:
 	rm -f main_file compile_commands.json
 
 run:
-	./main_file
+	make && ./main_file

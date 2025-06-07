@@ -60,14 +60,13 @@ float aspectRatio = 1;
 
 float sensitivity = 0.5f;
 
-ShaderProgram *sp, *csp; // Pointer to the shader program
+ShaderProgram *sp, *csp, *model_sp; // Pointer to the shader program
 Camera *camera;
 Movement *movement;
 Maze *maze;
 Model *treeModel;
 
-GLuint tex0;
-GLuint tex1;
+GLuint tex0, tex1, tex2, tex3, tex4;
 GLuint grassTex;
 GLuint left;
 GLuint right;
@@ -118,6 +117,7 @@ void initOpenGLProgram(GLFWwindow *window) {
         glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
     sp = new ShaderProgram("v_simplest.glsl", NULL, "f_simplest.glsl");
+    model_sp = new ShaderProgram("v_model.glsl", NULL, "f_model.glsl");
     csp = new ShaderProgram("v_cross.glsl", NULL, "f_cross.glsl");
     camera = new Camera(CAMERA_ROTATION_LIMIT, FOV, NEAR_PLANE, FAR_PLANE,
                         sensitivity, aspectRatio);
@@ -132,9 +132,15 @@ void initOpenGLProgram(GLFWwindow *window) {
     grassTex = readTexture("static/img/grass.png");
     left = readTexture("static/img/bron.png");
     right = readTexture("static/img/lampa.png");
+    tex2 = readTexture("static/models/zengwu_battle@body@D.png");
+    tex3 = readTexture("static/models/zengwu_battle@body@S.png");
+    tex4 = readTexture("static/models/zengwu_battle@body@N.png");
+
+    std::vector<GLuint> treeTextures = {tex2, tex3, tex4};
 
     treeModel = new Model();
-    treeModel->loadModel(std::string("static/models/Tree01_OBJ.obj"), sp);
+    treeModel->loadModel(std::string("static/models/Model.obj"), model_sp,
+                         treeTextures);
 }
 
 // Free OpenGL resources
@@ -294,8 +300,8 @@ void drawHud(GLuint leftHandTex, GLuint rightHandTex) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     csp->use();
-    std::cout << "Left hand tex ID: " << leftHandTex << std::endl;
-    std::cout << "Right hand tex ID: " << rightHandTex << std::endl;
+    // std::cout << "Left hand tex ID: " << leftHandTex << std::endl;
+    // std::cout << "Right hand tex ID: " << rightHandTex << std::endl;
 
     glm::mat4 V = glm::mat4(1.0f);
     glm::mat4 P = glm::mat4(1.0f);
@@ -368,8 +374,13 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
     glm::mat4 M = glm::mat4(1.0f);
     drawFloor(M);
     drawMaze(M);
-    // drawHud(left, right);
-    treeModel->Draw(M, sp);
+
+    model_sp->use();
+    glm::mat4 M_y_0 = glm::translate(M, glm::vec3(0.0f, -1.0f, 0.0f));
+    camera->updateCamera(x_pos, z_pos, model_sp);
+    treeModel->Draw(M_y_0);
+
+    drawHud(left, right);
     drawCrosshair(M);
     glfwSwapBuffers(window);
 }

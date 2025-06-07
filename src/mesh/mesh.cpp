@@ -3,6 +3,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "shaderprogram.h"
 #include <cstddef>
+#include <string>
 #include <vector>
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices,
@@ -20,11 +21,22 @@ void Mesh::Draw(const glm::mat4 &M, ShaderProgram *sp) {
 
     glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
     glBindVertexArray(VAO);
+    // glUniform3f(sp->u("kd"), material.kd.r, material.kd.g, material.kd.b);
+    // glUniform3f(sp->u("ks"), material.ks.r, material.ks.g, material.ks.b);
+    // glUniform1f(sp->u("ns"), material.ns);
+    // glUniform1i(sp->u("hasTexture"), 0);
+
+    for (unsigned int i = 0; i < meshTextures.size(); i++) {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, meshTextures[i]);
+        glUniform1i(sp->u(("textureMap" + std::to_string(i)).c_str()), i);
+    }
+
     glDrawElements(GL_TRIANGLES, static_cast<unsigned int>(indices.size()),
                    GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    glActiveTexture(GL_TEXTURE0);
+    // glActiveTexture(GL_TEXTURE0);
 }
 
 void Mesh::setupMesh() {
