@@ -1,40 +1,58 @@
-#version 330 core
+#version 330
 
-in vec3 fragPos;
-in vec3 fragNormal;
-in vec2 uv;
+uniform sampler2D textureMap0; // diffuse
+uniform sampler2D textureMap1; // normal map
+uniform sampler2D textureMap2; // height map
 
-uniform sampler2D textureMap0;
-uniform sampler2D textureMap1;
+uniform vec3 cameraPos;        // player position in world space
 
-uniform vec3 cameraPos;
+in vec4 ic;
+in vec4 n;
+in vec4 l;
+in vec4 v;
+in vec2 iTexCoord0;
+in vec3 fragWorldPos;          // interpolated world position
 
-out vec4 outColor;
+out vec4 pixelColor;
 
-void main() {
-    vec3 normal = normalize(fragNormal);
-    vec3 lightDir = normalize(cameraPos - fragPos);
+vec2 parallaxTexCoords(vec4 viewDir, vec2 texCoords, float heightScale, float numLayers) {
+    vec2 P = viewDir.xy / numLayers;
+    float currentLayerDepth = 0.0;
+    float layerDepth = 1.0 / numLayers;
+    vec2 currentTexCoords = texCoords;
+    float currentDepthMapValue = texture(textureMap2, currentTexCoords).r * heightScale;
 
-    // -- Diffuse lighting (kąt padania)
-    float diff = max(dot(normal, lightDir), 0.0);
-    diff = mix(0.4, 1.0, pow(diff, 2.0));  // zawsze co najmniej 0.4 — mniej ostre różnice
+    if (viewDir.z <= 0) discard;
 
-    // -- Attenuacja (punktowe światło)
-    float distance = length(fragPos - cameraPos);
-    float attenuation = 1.0 / (0.2 + 0.15 * distance + 0.05 * distance * distance);
+    // Simple parallax loop (optional, can be commented if too heavy)
+    // while (currentLayerDepth < currentDepthMapValue) {
+    //     currentTexCoords -= P;
+    //     if (currentTexCoords.x < 0.0 || currentTexCoords.x > 1.0 || currentTexCoords.y < 0.0 || currentTexCoords.y > 1.0) discard;
+    //     currentDepthMapValue = texture(textureMap2, currentTexCoords).r * heightScale;
+    //     currentLayerDepth += layerDepth;
+    // }
 
-    // -- Ambient
-    vec3 ambient = vec3(0.08);  // minimalne światło zawsze obecne
+    return currentTexCoords;
+}
 
-    // -- Tekstury i światło
-    vec3 diffuseColor = texture(textureMap0, uv).rgb;
-    vec3 ivyColor = texture(textureMap1, uv).rgb;
-    vec3 finalColor = mix(diffuseColor, ivyColor, 0.1);
+void main(void) {
+    vec4 mv = normalize(v);
+    vec2 tc = parallaxTexCoords(mv, iTexCoord0, 0.1, 1000.0);
 
-    vec3 lightColor = vec3(0.7, 0.5, 0.2);
-    vec3 lighting = (diff * lightColor + ambient) * attenuation;
+    vec4 ml = normalize(l);
+    vec4 mn = normalize(vec4(texture(textureMap1, tc).rgb * 2.0 - 1.0, 0.0));
+    vec4 mr = reflect(-ml, mn);
 
-    vec3 result = finalColor * lighting;
+    vec4 kd = texture(textureMap0, tc);
+    vec4 ks = vec4(1.0);
 
-    outColor = vec4(result, 1.0);
+    float nl = clamp(dot(mn, ml), 0.0, 1.0);
+    float rv = pow(clamp(dot(mr, mv), 0.0, 1.0), 25.0);
+
+    // Distance attenuation for light radius around player
+    float dist = length(cameraPos - fragWorldPos);
+    float radius = 5.0; // Light radius in world units
+    float attenuation = clamp(1.0 - dist / radius, 0.0, 1.0);
+
+    pixelColor = vec4(kd.rgb * nl * attenuation, kd.a) + vec4(ks.rgb * rv * attenuation, 0.0);
 }

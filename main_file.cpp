@@ -247,15 +247,15 @@ void drawCube(const glm::mat4 &M, float x, float z) {
 
     glUniform1i(sp->u("textureMap0"), 0);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex0);
+    glBindTexture(GL_TEXTURE_2D, brick_tex0);
 
     glUniform1i(sp->u("textureMap1"), 1);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, tex1);
+    glBindTexture(GL_TEXTURE_2D, brick_tex1);
 
-    // glUniform1i(sp->u("textureMap2"), 2);
-    // glActiveTexture(GL_TEXTURE2);
-    // glBindTexture(GL_TEXTURE_2D, brick_tex2);
+    glUniform1i(sp->u("textureMap2"), 2);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, brick_tex2);
 
     glDrawArrays(GL_TRIANGLES, 0, myCubeVertexCount); // Narysuj obiekt
 
