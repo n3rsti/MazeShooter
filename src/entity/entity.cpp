@@ -1,11 +1,47 @@
 #include "src/entity/entity.h"
+#include "glm/ext/vector_float3.hpp"
 #include "src/maze/maze.h"
 #include "src/model/model.h"
 #include <cmath>
 #include <iostream>
+#include <ostream>
 #include <queue>
 #include <utility>
 #include <vector>
+
+float sx = 1.0f, sy = 1.0f, sz = 1.0f; // half-width, half-height, half-depth
+bool Entity::isUnderCursor(glm::vec3 cameraPos, glm::vec3 rayDir) {
+    glm::vec3 min = glm::vec3(x - sx, y, z - sz);
+    glm::vec3 max = glm::vec3(x + sx, y + sy * 2.0f, z + sz);
+
+    float tmin = (min.x - cameraPos.x) / rayDir.x;
+    float tmax = (max.x - cameraPos.x) / rayDir.x;
+    if (tmin > tmax)
+        std::swap(tmin, tmax);
+
+    float tymin = (min.y - cameraPos.y) / rayDir.y;
+    float tymax = (max.y - cameraPos.y) / rayDir.y;
+    if (tymin > tymax)
+        std::swap(tymin, tymax);
+
+    if ((tmin > tymax) || (tymin > tmax))
+        return false;
+
+    if (tymin > tmin)
+        tmin = tymin;
+    if (tymax < tmax)
+        tmax = tymax;
+
+    float tzmin = (min.z - cameraPos.z) / rayDir.z;
+    float tzmax = (max.z - cameraPos.z) / rayDir.z;
+    if (tzmin > tzmax)
+        std::swap(tzmin, tzmax);
+
+    if ((tmin > tzmax) || (tzmin > tmax))
+        return false;
+
+    return true;
+}
 
 std::pair<int, int> bfs_next_move(const std::vector<std::vector<int>> *maze,
                                   std::pair<int, int> entity,
@@ -67,39 +103,47 @@ Entity::Entity(float x, float y, float z, float speed, Model *model)
 
 void Entity::move_entity_towards_player(
     Entity &entity, const std::vector<std::vector<int>> &maze,
-    std::pair<int, int> player, float deltaTime) {
+    std::pair<float, float> player_world, float deltaTime) {
+    // Convert world position to grid for pathfinding
+    std::pair<int, int> entity_pos = {Maze::world_to_grid(x),
+                                      Maze::world_to_grid(z)};
+    std::pair<int, int> player_pos_grid = {
+        Maze::world_to_grid(player_world.first),
+        Maze::world_to_grid(player_world.second)};
+    std::pair<int, int> next_tile =
+        bfs_next_move(&maze, entity_pos, player_pos_grid);
 
-    // Convert world position to grid
-    std::pair<int, int> entity_pos = {Maze::world_to_grid(entity.x),
-                                      Maze::world_to_grid(entity.z)};
-    std::pair<int, int> next_tile = bfs_next_move(&maze, entity_pos, player);
+    float target_x, target_z;
 
-    // If already at next tile, do nothing
-    if (entity_pos == next_tile)
-        return;
+    if (entity_pos == player_pos_grid) {
+        target_x = player_world.first;
+        target_z = player_world.second;
+    } else {
+        target_x = Maze::grid_to_world(next_tile.first);
+        target_z = Maze::grid_to_world(next_tile.second);
+    }
 
-    // Convert next_tile (maze grid) to world coordinates
-    float target_x = Maze::grid_to_world(next_tile.first);
-    float target_z = Maze::grid_to_world(next_tile.second);
-
-    float dir_x = target_x - entity.x;
-    float dir_z = target_z - entity.z;
+    float dir_x = target_x - x;
+    float dir_z = target_z - z;
     float length = std::sqrt(dir_x * dir_x + dir_z * dir_z);
 
     if (length > 0.01f) {
         dir_x /= length;
         dir_z /= length;
 
-        entity.rotation_y = std::atan2(dir_x, dir_z);
+        rotation_y = std::atan2(dir_x, dir_z);
 
-        entity.x += dir_x * entity.speed * deltaTime;
-        entity.z += dir_z * entity.speed * deltaTime;
+        x += dir_x * speed * deltaTime;
+        z += dir_z * speed * deltaTime;
 
-        // Snap to tile if close enough
-        if (std::fabs(target_x - entity.x) < 0.1f &&
-            std::fabs(target_z - entity.z) < 0.1f) {
-            entity.x = target_x;
-            entity.z = target_z;
+        // Snap to target if close enough
+        if (std::fabs(target_x - x) < 0.1f && std::fabs(target_z - z) < 0.1f) {
+            x = target_x;
+            z = target_z;
         }
+
+        // print coordinates
+        std::cout << "Entity position: (" << x << ", " << y << ", " << z
+                  << std::endl;
     }
 }

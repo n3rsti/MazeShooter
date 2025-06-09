@@ -56,6 +56,9 @@ const float FAR_PLANE = 100.0f;
 
 const int MAZE_WIDTH = 71;  // Width of the maze
 const int MAZE_HEIGHT = 71; // Height of the maze
+//
+const int ENTITY_LIMIT = 100;
+int entityCount = 0;
 
 // Global Variables
 float aspectRatio = 1;
@@ -72,6 +75,11 @@ GLuint tex0, tex1, enemyDiffusion, enemyNormal, enemyS, enemyAO, enemyE, skyTex;
 GLuint grassTex;
 GLuint left;
 GLuint right;
+
+bool leftPressed = false;
+
+glm::mat4 V;
+glm::mat4 P;
 
 std::vector<Entity *> entities;
 
@@ -109,6 +117,15 @@ void windowResizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
+void mouse_button_callback(GLFWwindow *window, int button, int action,
+                           int mods) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        leftPressed = true;
+    } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+        leftPressed = false;
+    }
+}
+
 // Initialize OpenGL
 void initOpenGLProgram(GLFWwindow *window) {
     glClearColor(0, 0, 0, 1);
@@ -120,6 +137,7 @@ void initOpenGLProgram(GLFWwindow *window) {
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);
     glfwSetKeyCallback(window, keyCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (glfwRawMouseMotionSupported())
@@ -158,7 +176,7 @@ void initOpenGLProgram(GLFWwindow *window) {
     treeModel->loadModel(std::string("static/models/Model.obj"), model_sp,
                          treeTextures);
 
-    entities.push_back(new Entity(0, 0, 0, INITIAL_SPEED / 2, treeModel));
+    // entities.push_back(new Entity(0, 0, 0, INITIAL_SPEED / 2, treeModel));
 }
 
 // Free OpenGL resources
@@ -449,18 +467,29 @@ void drawHud(GLuint leftHandTex, GLuint rightHandTex) {
 
     glEnable(GL_DEPTH_TEST);
 }
+void handleShooting(glm::vec3 cameraPos, glm::vec3 rayDir, float hitRadius) {
+    for (auto it = entities.begin(); it != entities.end();) {
+        if ((*it)->isUnderCursor(cameraPos, rayDir)) {
+            delete *it; // Free memory if needed
+            it = entities.erase(it);
+            entityCount--;
+        } else {
+            ++it;
+        }
+    }
+}
 // Draw scene
 void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     sp->use();
-    camera->updateCamera(x_pos, z_pos, sp);
+    camera->updateCamera(x_pos, z_pos, sp, V, P);
     glm::vec3 eye = glm::vec3(x_pos, 0.0f, z_pos); // Pozycja gracza jako kamera
     glUniform3fv(sp->u("cameraPos"), 1, glm::value_ptr(eye));
 
     fsp->use();
     glUniform3fv(fsp->u("cameraPos"), 1, glm::value_ptr(eye));
-    camera->updateCamera(x_pos, z_pos, fsp);
+    camera->updateCamera(x_pos, z_pos, fsp, V, P);
     glm::mat4 M = glm::mat4(1.0f);
     drawSky(M);
     drawMaze(M);
@@ -469,18 +498,56 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
 
     glUniform3fv(model_sp->u("cameraPos"), 1, glm::value_ptr(eye));
     glm::mat4 M_y_0 = glm::translate(M, glm::vec3(0.0f, -1.0f, 0.0f));
-    camera->updateCamera(x_pos, z_pos, model_sp);
+    camera->updateCamera(x_pos, z_pos, model_sp, V, P);
     // treeModel->Draw(M_y_0);
     //
 
     int posX = Maze::world_to_grid(x_pos);
     int posZ = Maze::world_to_grid(z_pos);
 
-    std::cout << "Player position: (" << posX << ", " << posZ << ")"
+    std::cout << "Player position in grid: (" << posX << ", " << posZ << ")"
               << std::endl;
 
+    if (leftPressed) {
+        glm::vec3 cameraPos = glm::vec3(x_pos, 0.0f, z_pos);
+        glm::vec3 rayDir = camera->getForward();
+
+        for (auto it = entities.begin(); it != entities.end();) {
+            if ((*it)->isUnderCursor(cameraPos, rayDir)) {
+                delete *it;
+                it = entities.erase(it);
+                entityCount--;
+            } else {
+                ++it;
+            }
+        }
+        leftPressed = false;
+    }
+
+    if (entityCount < ENTITY_LIMIT) {
+        // generate x, z coordinates from -35 to 35
+        int x = rand() % (MAZE_WIDTH - 1);
+        int z = rand() % (MAZE_HEIGHT - 1);
+
+        // Check if the position is a wall
+        if (maze->maze[x][z] == 0) {
+            x = Maze::grid_to_world(x);
+            z = Maze::grid_to_world(z);
+            // draw entity at this position
+            Entity *newEntity =
+                new Entity(x, 0, z, INITIAL_SPEED / 2, treeModel);
+            entities.push_back(newEntity);
+            entityCount++;
+
+            std::cout << "Entity added at position: (" << x << ", " << z << ")"
+                      << std::endl;
+
+            std::cout << "Total entities: " << entityCount << std::endl;
+        }
+    }
+
     for (Entity *entity : entities) {
-        entity->move_entity_towards_player(*entity, maze->maze, {posX, posZ},
+        entity->move_entity_towards_player(*entity, maze->maze, {x_pos, z_pos},
                                            glfwGetTime());
         glm::mat4 M_entity =
             glm::translate(M_y_0, glm::vec3(entity->x, entity->y, entity->z));
@@ -488,6 +555,10 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
                                glm::vec3(0.0f, 1.0f, 0.0f));
         M_entity = glm::scale(M_entity, glm::vec3(0.5f, 0.5f, 0.5f));
         entity->model->Draw(M_entity);
+
+        // print entity position
+        std::cout << "Entity position: (" << entity->x << ", " << entity->y
+                  << ", " << entity->z << ")" << std::endl;
     }
 
     drawHud(left, right);

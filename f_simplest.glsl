@@ -47,7 +47,7 @@ void main(void) {
     vec4 mr2 = reflect(-ml2, mn);
 
     vec4 kd = texture(textureMap0, tc);
-    vec4 ks = vec4(1.0);
+	vec4 ks = vec4(1,0.7,0.3,1);
 
     // First light (camera/player)
     float nl = clamp(dot(mn, ml), 0.0, 1.0);
