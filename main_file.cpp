@@ -19,7 +19,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/scalar_constants.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "src/entity/entity.h"
 #include "src/maze/maze.h"
+#include "static/models/sky.h"
 #include <cmath>
 #include <iostream>
 #include <ostream>
@@ -60,16 +62,18 @@ float aspectRatio = 1;
 
 float sensitivity = 0.5f;
 
-ShaderProgram *sp, *csp, *model_sp; // Pointer to the shader program
+ShaderProgram *sp, *csp, *model_sp, *fsp; // Pointer to the shader program
 Camera *camera;
 Movement *movement;
 Maze *maze;
 Model *treeModel;
 
-GLuint tex0, tex1, enemyDiffusion, enemyNormal, enemyS, enemyAO, enemyE;
+GLuint tex0, tex1, enemyDiffusion, enemyNormal, enemyS, enemyAO, enemyE, skyTex;
 GLuint grassTex;
 GLuint left;
 GLuint right;
+
+std::vector<Entity *> entities;
 
 GLuint brick_tex0, brick_tex1, brick_tex2;
 
@@ -109,6 +113,9 @@ void windowResizeCallback(GLFWwindow *window, int width, int height) {
 void initOpenGLProgram(GLFWwindow *window) {
     glClearColor(0, 0, 0, 1);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     glfwSetWindowSizeCallback(window, windowResizeCallback);
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);
     glfwSetKeyCallback(window, keyCallback);
@@ -123,14 +130,14 @@ void initOpenGLProgram(GLFWwindow *window) {
     csp = new ShaderProgram("v_cross.glsl", NULL, "f_cross.glsl");
     camera = new Camera(CAMERA_ROTATION_LIMIT, FOV, NEAR_PLANE, FAR_PLANE,
                         sensitivity, aspectRatio);
+    fsp =
+        new ShaderProgram("shaders/v_floor.glsl", NULL, "shaders/f_floor.glsl");
     maze = new Maze(MAZE_WIDTH, MAZE_HEIGHT);
     maze->generate_maze(35, 35); // Generate the maze starting from (1, 1)
 
     // maze->print_maze(); // Print the generated maze to the console
     movement = new Movement(INITIAL_SPEED, maze);
 
-    tex0 = readTexture("static/img/ivy-wall.png");
-    tex1 = readTexture("static/img/ivy_wall_diffuse.png");
     grassTex = readTexture("static/img/grass.png");
     left = readTexture("static/img/bron.png");
     right = readTexture("static/img/lampa.png");
@@ -139,52 +146,82 @@ void initOpenGLProgram(GLFWwindow *window) {
     enemyS = readTexture("static/models/zengwu_battle@body@S.png");
     enemyAO = readTexture("static/models/zengwu_battle@body@ao.png");
     enemyE = readTexture("static/models/zengwu_battle@body@e.png");
-    brick_tex0 = readTexture("static/img/bricks2_diffuse.png");
-    brick_tex1 = readTexture("static/img/bricks2_normal.png");
-    brick_tex2 = readTexture("static/img/bricks2_height.png");
+    brick_tex0 = readTexture("static/img/ivy-diffuse.png");
+    brick_tex1 = readTexture("static/img/ivy-normal.png");
+    brick_tex2 = readTexture("static/img/ivy-height.png");
+    skyTex = readTexture("static/img/Moon.png");
 
-    std::vector<GLuint> treeTextures = {enemyDiffusion, enemyNormal, enemyAO,
+    std::vector<GLuint> treeTextures = {enemyDiffusion, enemyNormal, enemyS,
                                         enemyAO, enemyE};
 
     treeModel = new Model();
     treeModel->loadModel(std::string("static/models/Model.obj"), model_sp,
                          treeTextures);
+
+    entities.push_back(new Entity(0, 0, 0, INITIAL_SPEED / 2, treeModel));
 }
 
 // Free OpenGL resources
 void freeOpenGLProgram(GLFWwindow *window) { delete sp; }
 
-void drawFloor(const glm::mat4 &M) {
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glUniformMatrix4fv(sp->u("M"), 1, false, glm::value_ptr(M));
-    glEnableVertexAttribArray(sp->a("vertex"));
-    glVertexAttribPointer(sp->a("vertex"), 4, GL_FLOAT, false, 0,
+void drawFloor(const glm::mat4 &M, float x, float z) {
+    glm::mat4 M_translate = glm::translate(M, glm::vec3(x, 0.0f, z));
+    glUniformMatrix4fv(fsp->u("M"), 1, false, glm::value_ptr(M_translate));
+    glEnableVertexAttribArray(fsp->a("vertex"));
+    glVertexAttribPointer(fsp->a("vertex"), 4, GL_FLOAT, false, 0,
                           floorVertices);
-
-    glEnableVertexAttribArray(sp->a("texCoord0"));
-    glVertexAttribPointer(sp->a("texCoord0"), 2, GL_FLOAT, false, 0,
+    glEnableVertexAttribArray(fsp->a("texCoord0"));
+    glVertexAttribPointer(fsp->a("texCoord0"), 2, GL_FLOAT, false, 0,
                           floorTexCoords);
-
-    glEnableVertexAttribArray(sp->a("normal"));
-    glVertexAttribPointer(sp->a("normal"), 4, GL_FLOAT, false, 0, floorNormals);
+    glEnableVertexAttribArray(fsp->a("normal"));
+    glVertexAttribPointer(fsp->a("normal"), 4, GL_FLOAT, false, 0,
+                          floorNormals);
 
     glActiveTexture(GL_TEXTURE0); // Assign texture tex0 to the 0-th texturing
-                                  // unit
     glBindTexture(GL_TEXTURE_2D, grassTex);
     glUniform1i(
-        sp->u("textureMap0"),
+        fsp->u("textureMap0"),
         0); // Associate sampler textureMap0 with the 0-th texturing unit
+
+    glActiveTexture(GL_TEXTURE1); // Assign texture tex0 to the 0-th texturing
+    glBindTexture(GL_TEXTURE_2D, skyTex);
+    glUniform1i(
+        fsp->u("textureMap1"),
+        1); // Associate sampler textureMap0 with the 0-th texturing unit
 
     glDrawArrays(GL_TRIANGLES, 0, floorVertexCount); // Draw the object
 
     glDisableVertexAttribArray(
-        sp->a("vertex")); // Disable sending data to the attribute vertex
+        fsp->a("vertex")); // Disable sending data to the attribute vertex
     glDisableVertexAttribArray(
-        sp->a("texCoord0")); // Disable sending data to the attribute texCoord0
+        fsp->a("texCoord0")); // Disable sending data to the attribute texCoord0
     glDisableVertexAttribArray(
-        sp->a("normal")); // Disable sending data to the attribute normal
+        fsp->a("normal")); // Disable sending data to the attribute normal
+}
+void drawSky(const glm::mat4 &M) {
+    glUniformMatrix4fv(fsp->u("M"), 1, false, glm::value_ptr(M));
+    glEnableVertexAttribArray(fsp->a("vertex"));
+    glVertexAttribPointer(fsp->a("vertex"), 4, GL_FLOAT, false, 0, skyVertices);
+    glEnableVertexAttribArray(fsp->a("texCoord0"));
+    glVertexAttribPointer(fsp->a("texCoord0"), 2, GL_FLOAT, false, 0,
+                          skyTexCoords);
+    glEnableVertexAttribArray(fsp->a("normal"));
+    glVertexAttribPointer(fsp->a("normal"), 4, GL_FLOAT, false, 0, skyNormals);
+
+    glActiveTexture(GL_TEXTURE0); // Assign texture tex0 to the 0-th texturing
+    glBindTexture(GL_TEXTURE_2D, skyTex);
+    glUniform1i(
+        fsp->u("textureMap0"),
+        0); // Associate sampler textureMap0 with the 0-th texturing unit
+
+    glDrawArrays(GL_TRIANGLES, 0, skyVertexCount); // Draw the object
+
+    glDisableVertexAttribArray(
+        fsp->a("vertex")); // Disable sending data to the attribute vertex
+    glDisableVertexAttribArray(
+        fsp->a("texCoord0")); // Disable sending data to the attribute texCoord0
+    glDisableVertexAttribArray(
+        fsp->a("normal")); // Disable sending data to the attribute normal
 }
 
 void printMatrix(const glm::mat4 &mat) {
@@ -284,11 +321,14 @@ void drawMaze(const glm::mat4 &M) {
     // Draw each wall in the maze
     for (int y = 0; y < maze->height; ++y) {
         for (int x = 0; x < maze->width; ++x) {
+            float posX = x * blockSize - offsetX;
+            float posZ = y * blockSize - offsetZ;
             if (maze->maze[y][x] == 1) {
-                float posX = x * blockSize - offsetX;
-                float posZ = y * blockSize - offsetZ;
+                sp->use();
                 drawCube(M, posX, posZ);
             }
+            fsp->use();
+            drawFloor(M, posX, posZ);
         }
     }
 
@@ -418,8 +458,11 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
     glm::vec3 eye = glm::vec3(x_pos, 0.0f, z_pos); // Pozycja gracza jako kamera
     glUniform3fv(sp->u("cameraPos"), 1, glm::value_ptr(eye));
 
+    fsp->use();
+    glUniform3fv(fsp->u("cameraPos"), 1, glm::value_ptr(eye));
+    camera->updateCamera(x_pos, z_pos, fsp);
     glm::mat4 M = glm::mat4(1.0f);
-    drawFloor(M);
+    drawSky(M);
     drawMaze(M);
 
     model_sp->use();
@@ -427,7 +470,25 @@ void drawScene(GLFWwindow *window, float x_pos, float z_pos) {
     glUniform3fv(model_sp->u("cameraPos"), 1, glm::value_ptr(eye));
     glm::mat4 M_y_0 = glm::translate(M, glm::vec3(0.0f, -1.0f, 0.0f));
     camera->updateCamera(x_pos, z_pos, model_sp);
-    treeModel->Draw(M_y_0);
+    // treeModel->Draw(M_y_0);
+    //
+
+    int posX = Maze::world_to_grid(x_pos);
+    int posZ = Maze::world_to_grid(z_pos);
+
+    std::cout << "Player position: (" << posX << ", " << posZ << ")"
+              << std::endl;
+
+    for (Entity *entity : entities) {
+        entity->move_entity_towards_player(*entity, maze->maze, {posX, posZ},
+                                           glfwGetTime());
+        glm::mat4 M_entity =
+            glm::translate(M_y_0, glm::vec3(entity->x, entity->y, entity->z));
+        M_entity = glm::rotate(M_entity, entity->rotation_y,
+                               glm::vec3(0.0f, 1.0f, 0.0f));
+        M_entity = glm::scale(M_entity, glm::vec3(0.5f, 0.5f, 0.5f));
+        entity->model->Draw(M_entity);
+    }
 
     drawHud(left, right);
     drawCrosshair(M);

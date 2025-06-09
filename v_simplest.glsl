@@ -17,7 +17,8 @@ in vec4 c3;        // normal (TBN basis vectors)
 
 // Outputs to fragment shader
 out vec4 ic;
-out vec4 l;        // light direction (tangent space)
+out vec4 l;        // light direction (tangent space, from camera/player)
+out vec4 l2;       // light direction (tangent space, from (0,10,0))
 out vec4 n;        // normal (tangent space)
 out vec4 v;        // view direction (tangent space)
 out vec2 iTexCoord0;
@@ -29,9 +30,14 @@ void main(void) {
     vec4 worldPos = M * vertex;
     fragWorldPos = vec3(worldPos);
 
-    // Light direction vector (world space)
+    // Light direction vector (world space) from camera/player
     vec4 lightDirWorld = vec4(cameraPos, 1.0) - worldPos;
     l = normalize(invTBN * lightDirWorld); // light dir in tangent space
+
+    // Second light direction vector (world space) from (0,10,0)
+    vec4 light2Pos = vec4(0.0, 10.0, 0.0, 1.0);
+    vec4 light2DirWorld = light2Pos - worldPos;
+    l2 = normalize(invTBN * light2DirWorld); // second light dir in tangent space
 
     // View direction vector (world space)
     vec4 viewPosWorld = inverse(V * M) * vec4(0, 0, 0, 1);

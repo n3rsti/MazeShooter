@@ -8,7 +8,8 @@ uniform vec3 cameraPos;        // player position in world space
 
 in vec4 ic;
 in vec4 n;
-in vec4 l;
+in vec4 l;        // from camera/player
+in vec4 l2;       // from (0,10,0)
 in vec4 v;
 in vec2 iTexCoord0;
 in vec3 fragWorldPos;          // interpolated world position
@@ -40,19 +41,34 @@ void main(void) {
     vec2 tc = parallaxTexCoords(mv, iTexCoord0, 0.1, 1000.0);
 
     vec4 ml = normalize(l);
+    vec4 ml2 = normalize(l2);
     vec4 mn = normalize(vec4(texture(textureMap1, tc).rgb * 2.0 - 1.0, 0.0));
     vec4 mr = reflect(-ml, mn);
+    vec4 mr2 = reflect(-ml2, mn);
 
     vec4 kd = texture(textureMap0, tc);
     vec4 ks = vec4(1.0);
 
+    // First light (camera/player)
     float nl = clamp(dot(mn, ml), 0.0, 1.0);
     float rv = pow(clamp(dot(mr, mv), 0.0, 1.0), 25.0);
 
-    // Distance attenuation for light radius around player
+    // Second light ((0,10,0))
+    float nl2 = clamp(dot(mn, ml2), 0.0, 1.0);
+    float rv2 = pow(clamp(dot(mr2, mv), 0.0, 1.0), 25.0);
+
+    // Distance attenuation for each light
     float dist = length(cameraPos - fragWorldPos);
     float radius = 5.0; // Light radius in world units
     float attenuation = clamp(1.0 - dist / radius, 0.0, 1.0);
 
-    pixelColor = vec4(kd.rgb * nl * attenuation, kd.a) + vec4(ks.rgb * rv * attenuation, 0.0);
+    float dist2 = length(vec3(0.0, 10.0, 0.0) - fragWorldPos);
+    float radius2 = 10.0; // Light radius for second light, can tweak as needed
+    float attenuation2 = clamp(1.0 - dist2 / radius2, 0.0, 1.0);
+
+    // Sum both lights
+    vec3 diffuse = kd.rgb * (nl * attenuation + nl2 * attenuation2);
+    float spec = rv * attenuation + rv2 * attenuation2;
+
+    pixelColor = vec4(diffuse, kd.a) + vec4(ks.rgb * spec, 0.0);
 }

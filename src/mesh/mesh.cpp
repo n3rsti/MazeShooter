@@ -35,7 +35,7 @@ void Mesh::Draw(const glm::mat4 &M, ShaderProgram *sp) {
                    GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    // glActiveTexture(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE0);
 }
 
 void Mesh::setupMesh() {

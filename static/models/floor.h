@@ -10,7 +10,7 @@
 // myCubeC2 - TBN^-1 matrix column
 // myCubeC3 - TBN^-1 matrix column
 
-#define FLOOR_SIZE 71.0f
+#define FLOOR_SIZE 1.0f
 
 int floorVertexCount = 6;
 
