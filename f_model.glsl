@@ -31,10 +31,10 @@ void main(void) {
     vec2 tc = parallaxTexCoords(mv, iTexCoord0, 0.1, 1000.0);
 
     vec4 ml = normalize(l);
-    vec4 mn = normalize(vec4(texture(textureMap1, tc).rgb * 2.0 - 1.0, 0.0));
+    vec4 mn = normalize(vec4(texture(textureMap1, iTexCoord0).rgb * 2.0 - 1.0, 0.0));
     vec4 mr = reflect(-ml, mn);
 
-    vec4 kd = texture(textureMap0, tc); 
+    vec4 kd = texture(textureMap0, iTexCoord0); 
     vec4 ks = vec4(1.0);
 
     float nl = clamp(dot(mn, ml), 0.0, 1.0);
@@ -45,12 +45,12 @@ void main(void) {
     float dist = length(v.xyz);
     float att = 1.0 / (0.2 + 0.15 * dist + 0.05 * dist * dist);
 
-    float ao = texture(textureMap3, tc).r;
+    float ao = texture(textureMap3, iTexCoord0).r;
 
-    vec3 ambient = vec3(0.08);
+    vec3 ambient = vec3(0.08) * ao;
     vec3 lightColor = vec3(0.7, 0.5, 0.2);
 
-    vec3 emissive = texture(textureMap4, tc).rgb;
+    vec3 emissive = texture(textureMap4, iTexCoord0).rgb;
 
     vec3 lighting = (nl * lightColor + ambient + ks.rgb * rv) * att;
     vec3 finalColor = kd.rgb * lighting;
